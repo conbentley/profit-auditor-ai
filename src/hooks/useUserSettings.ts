@@ -30,6 +30,26 @@ export interface UserSettings {
   api_usage_stats: Record<string, any>;
 }
 
+const defaultSettings: Partial<UserSettings> = {
+  audit_frequency: 'on_demand',
+  email_frequency: 'instant',
+  email_notifications: true,
+  in_app_notifications: true,
+  sms_notifications: false,
+  ai_explanation_detail: 'intermediate',
+  dashboard_layout: 'grid',
+  theme: 'system',
+  language: 'en',
+  two_factor_enabled: false,
+  data_sharing_enabled: false,
+  integrations: {},
+  kpi_thresholds: {},
+  industry_benchmarks: {},
+  target_kpis: {},
+  api_keys: {},
+  api_usage_stats: {}
+};
+
 export function useUserSettings() {
   const queryClient = useQueryClient();
 
@@ -43,9 +63,25 @@ export function useUserSettings() {
         .from('user_settings')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+
+      if (!data) {
+        // Create default settings if none exist
+        const { data: newSettings, error: createError } = await supabase
+          .from('user_settings')
+          .insert({ 
+            user_id: user.id,
+            ...defaultSettings
+          })
+          .select('*')
+          .single();
+
+        if (createError) throw createError;
+        return newSettings as UserSettings;
+      }
+
       return data as UserSettings;
     }
   });
