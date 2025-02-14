@@ -6,6 +6,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Analytics from "./pages/Analytics";
 import AuditHistory from "./pages/AuditHistory";
+import Settings from "./pages/Settings";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -52,6 +53,10 @@ function App() {
           <Route
             path="/history"
             element={isAuthenticated ? <AuditHistory /> : <Navigate to="/auth" />}
+          />
+          <Route
+            path="/settings"
+            element={isAuthenticated ? <Settings /> : <Navigate to="/auth" />}
           />
           <Route
             path="/auth"

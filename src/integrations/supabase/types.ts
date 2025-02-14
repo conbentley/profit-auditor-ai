@@ -164,6 +164,115 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          ai_explanation_detail:
+            | Database["public"]["Enums"]["explanation_detail"]
+            | null
+          api_keys: Json | null
+          api_usage_stats: Json | null
+          audit_frequency: Database["public"]["Enums"]["audit_frequency"] | null
+          audit_schedule_day: number | null
+          audit_schedule_time: string | null
+          avatar_url: string | null
+          created_at: string
+          dashboard_layout:
+            | Database["public"]["Enums"]["dashboard_layout"]
+            | null
+          data_refresh_interval: unknown | null
+          data_sharing_enabled: boolean | null
+          email_frequency:
+            | Database["public"]["Enums"]["notification_frequency"]
+            | null
+          email_notifications: boolean | null
+          id: string
+          in_app_notifications: boolean | null
+          industry_benchmarks: Json | null
+          integrations: Json | null
+          kpi_thresholds: Json | null
+          language: string | null
+          phone_number: string | null
+          sms_notifications: boolean | null
+          target_kpis: Json | null
+          theme: Database["public"]["Enums"]["theme_preference"] | null
+          two_factor_enabled: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_explanation_detail?:
+            | Database["public"]["Enums"]["explanation_detail"]
+            | null
+          api_keys?: Json | null
+          api_usage_stats?: Json | null
+          audit_frequency?:
+            | Database["public"]["Enums"]["audit_frequency"]
+            | null
+          audit_schedule_day?: number | null
+          audit_schedule_time?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          dashboard_layout?:
+            | Database["public"]["Enums"]["dashboard_layout"]
+            | null
+          data_refresh_interval?: unknown | null
+          data_sharing_enabled?: boolean | null
+          email_frequency?:
+            | Database["public"]["Enums"]["notification_frequency"]
+            | null
+          email_notifications?: boolean | null
+          id?: string
+          in_app_notifications?: boolean | null
+          industry_benchmarks?: Json | null
+          integrations?: Json | null
+          kpi_thresholds?: Json | null
+          language?: string | null
+          phone_number?: string | null
+          sms_notifications?: boolean | null
+          target_kpis?: Json | null
+          theme?: Database["public"]["Enums"]["theme_preference"] | null
+          two_factor_enabled?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_explanation_detail?:
+            | Database["public"]["Enums"]["explanation_detail"]
+            | null
+          api_keys?: Json | null
+          api_usage_stats?: Json | null
+          audit_frequency?:
+            | Database["public"]["Enums"]["audit_frequency"]
+            | null
+          audit_schedule_day?: number | null
+          audit_schedule_time?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          dashboard_layout?:
+            | Database["public"]["Enums"]["dashboard_layout"]
+            | null
+          data_refresh_interval?: unknown | null
+          data_sharing_enabled?: boolean | null
+          email_frequency?:
+            | Database["public"]["Enums"]["notification_frequency"]
+            | null
+          email_notifications?: boolean | null
+          id?: string
+          in_app_notifications?: boolean | null
+          industry_benchmarks?: Json | null
+          integrations?: Json | null
+          kpi_thresholds?: Json | null
+          language?: string | null
+          phone_number?: string | null
+          sms_notifications?: boolean | null
+          target_kpis?: Json | null
+          theme?: Database["public"]["Enums"]["theme_preference"] | null
+          two_factor_enabled?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -173,6 +282,11 @@ export type Database = {
     }
     Enums: {
       accounting_provider: "xero" | "quickbooks" | "sage"
+      audit_frequency: "on_demand" | "weekly" | "monthly"
+      dashboard_layout: "grid" | "list"
+      explanation_detail: "basic" | "intermediate" | "advanced"
+      notification_frequency: "instant" | "daily" | "weekly"
+      theme_preference: "light" | "dark" | "system"
       user_role: "admin" | "user"
     }
     CompositeTypes: {
