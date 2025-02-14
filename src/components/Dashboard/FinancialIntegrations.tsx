@@ -17,12 +17,18 @@ import { AccountingProvider } from "@/types/financial";
 
 export default function FinancialIntegrations() {
   const [isLoading, setIsLoading] = useState(false);
-  const [provider, setProvider] = useState<AccountingProvider | ''>('');
+  const [provider, setProvider] = useState<AccountingProvider | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!provider) {
+      toast.error("Please select a provider");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -41,7 +47,7 @@ export default function FinancialIntegrations() {
       if (error) throw error;
 
       toast.success(`Successfully connected to ${provider}`);
-      setProvider('');
+      setProvider(null);
       setApiKey('');
       setApiSecret('');
     } catch (error) {
@@ -59,7 +65,7 @@ export default function FinancialIntegrations() {
         <div className="space-y-2">
           <Label htmlFor="provider">Select Provider</Label>
           <Select
-            value={provider}
+            value={provider || ""}
             onValueChange={(value) => setProvider(value as AccountingProvider)}
           >
             <SelectTrigger id="provider">
