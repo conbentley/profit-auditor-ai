@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
+import AuditReport from "@/components/Dashboard/AuditReport";
 import { Loader2 } from "lucide-react";
 import {
   LineChart,
@@ -119,6 +120,11 @@ const Analytics = () => {
         <main className="p-6">
           <h1 className="text-2xl font-semibold mb-6">Financial Analytics</h1>
           
+          {/* AI Audit Report */}
+          <div className="mb-6">
+            <AuditReport />
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Revenue Trend */}
             <Card className="p-6">
