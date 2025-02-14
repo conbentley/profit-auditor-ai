@@ -29,28 +29,44 @@ serve(async (req) => {
   try {
     const { user_id, month, year } = await req.json();
 
-    // Fetch financial data from integrations
-    const { data: integrations, error: integrationsError } = await supabase
-      .from('financial_integrations')
+    // Fetch financial data from transactions
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+
+    const { data: transactions, error: transactionsError } = await supabase
+      .from('financial_transactions')
       .select('*')
       .eq('user_id', user_id)
-      .eq('is_active', true)
-      .single();
+      .gte('transaction_date', startDate.toISOString())
+      .lte('transaction_date', endDate.toISOString());
 
-    if (integrationsError) throw integrationsError;
+    if (transactionsError) throw transactionsError;
 
-    // For demo purposes, we'll use mock data
-    // In a real app, you would fetch this from the accounting software API
-    const mockFinancialData: FinancialMetrics = {
-      revenue: 150000,
-      expenses: 95000,
-      profit_margin: 36.67,
-      cost_breakdown: {
-        'Labor': 45000,
-        'Materials': 25000,
-        'Marketing': 15000,
-        'Operations': 10000,
-      }
+    // Calculate financial metrics
+    const revenue = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const expenses = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const profit_margin = revenue > 0 ? ((revenue - expenses) / revenue) * 100 : 0;
+
+    // Calculate cost breakdown by category
+    const cost_breakdown = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((acc, t) => {
+        const category = t.category || 'Uncategorized';
+        acc[category] = (acc[category] || 0) + Number(t.amount);
+        return acc;
+      }, {} as Record<string, number>);
+
+    const financialData: FinancialMetrics = {
+      revenue,
+      expenses,
+      profit_margin,
+      cost_breakdown
     };
 
     // Generate AI analysis
@@ -61,7 +77,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',
         messages: [
           {
             role: 'system',
@@ -70,10 +86,10 @@ serve(async (req) => {
           {
             role: 'user',
             content: `Analyze these financial metrics and provide insights and recommendations:
-              Revenue: ${mockFinancialData.revenue}
-              Expenses: ${mockFinancialData.expenses}
-              Profit Margin: ${mockFinancialData.profit_margin}%
-              Cost Breakdown: ${JSON.stringify(mockFinancialData.cost_breakdown)}
+              Revenue: ${financialData.revenue}
+              Expenses: ${financialData.expenses}
+              Profit Margin: ${financialData.profit_margin.toFixed(2)}%
+              Cost Breakdown: ${JSON.stringify(financialData.cost_breakdown)}
               
               Provide a detailed analysis including:
               1. Summary of key performance indicators
@@ -84,8 +100,8 @@ serve(async (req) => {
               Format the response as JSON with these keys:
               {
                 summary: string,
-                kpis: { metric: string, value: string, trend: string }[],
-                recommendations: { title: string, description: string, impact: string, difficulty: string }[]
+                kpis: [{ metric: string, value: string, trend: string }],
+                recommendations: [{ title: string, description: string, impact: string, difficulty: string }]
               }`
           }
         ],
@@ -105,9 +121,10 @@ serve(async (req) => {
         kpis: analysis.kpis,
         recommendations: analysis.recommendations,
         analysis_metadata: {
-          data_source: 'mock_data',
-          ai_model: 'gpt-4o-mini',
+          data_source: 'transactions',
+          ai_model: 'gpt-4',
           timestamp: new Date().toISOString(),
+          metrics: financialData
         }
       });
 

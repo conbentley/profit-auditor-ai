@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      financial_audits: {
+        Row: {
+          analysis_metadata: Json | null
+          audit_date: string
+          created_at: string
+          id: string
+          kpis: Json
+          recommendations: Json
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          analysis_metadata?: Json | null
+          audit_date: string
+          created_at?: string
+          id?: string
+          kpis: Json
+          recommendations: Json
+          summary: string
+          user_id: string
+        }
+        Update: {
+          analysis_metadata?: Json | null
+          audit_date?: string
+          created_at?: string
+          id?: string
+          kpis?: Json
+          recommendations?: Json
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_integrations: {
         Row: {
           created_at: string
