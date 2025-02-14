@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -122,304 +121,308 @@ export default function Settings() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-4 lg:grid-cols-8 w-full mb-6">
-                  <TabsTrigger value="profile">Profile</TabsTrigger>
-                  <TabsTrigger value="integrations">Integrations</TabsTrigger>
-                  <TabsTrigger value="audit">Audit</TabsTrigger>
-                  <TabsTrigger value="notifications">Notifications</TabsTrigger>
-                  <TabsTrigger value="benchmarks">Benchmarks</TabsTrigger>
-                  <TabsTrigger value="display">Display</TabsTrigger>
-                  <TabsTrigger value="security">Security</TabsTrigger>
-                  <TabsTrigger value="api">API</TabsTrigger>
-                </TabsList>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <Card className="p-4">
+                  <TabsList className="grid grid-cols-4 lg:grid-cols-8 w-full">
+                    <TabsTrigger value="profile">Profile</TabsTrigger>
+                    <TabsTrigger value="integrations">Integrations</TabsTrigger>
+                    <TabsTrigger value="audit">Audit</TabsTrigger>
+                    <TabsTrigger value="notifications">Notifications</TabsTrigger>
+                    <TabsTrigger value="benchmarks">Benchmarks</TabsTrigger>
+                    <TabsTrigger value="display">Display</TabsTrigger>
+                    <TabsTrigger value="security">Security</TabsTrigger>
+                    <TabsTrigger value="api">API</TabsTrigger>
+                  </TabsList>
+                </Card>
 
-                <TabsContent value="profile">
-                  <Card className="p-8">
-                    <FormField
-                      control={form.control}
-                      name="avatar_url"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel>Profile Picture URL</FormLabel>
-                          <FormControl>
-                            <Input {...field} value={field.value || ''} />
-                          </FormControl>
-                          <FormDescription>
-                            Enter the URL of your profile picture
-                          </FormDescription>
-                        </FormItem>
-                      )}
-                    />
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="integrations">
-                  <Card className="p-8">
-                    <FormField
-                      control={form.control}
-                      name="data_refresh_interval"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel>Data Refresh Interval</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select interval" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="1 hour">Every hour</SelectItem>
-                              <SelectItem value="6 hours">Every 6 hours</SelectItem>
-                              <SelectItem value="12 hours">Every 12 hours</SelectItem>
-                              <SelectItem value="24 hours">Daily</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="audit">
-                  <Card className="p-8">
-                    <div className="space-y-6">
+                <div className="mt-6">
+                  <TabsContent value="profile" className="mt-0">
+                    <Card className="p-8">
                       <FormField
                         control={form.control}
-                        name="audit_frequency"
+                        name="avatar_url"
                         render={({ field }) => (
                           <FormItem className="space-y-2">
-                            <FormLabel>Audit Frequency</FormLabel>
+                            <FormLabel>Profile Picture URL</FormLabel>
+                            <FormControl>
+                              <Input {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormDescription>
+                              Enter the URL of your profile picture
+                            </FormDescription>
+                          </FormItem>
+                        )}
+                      />
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="integrations" className="mt-0">
+                    <Card className="p-8">
+                      <FormField
+                        control={form.control}
+                        name="data_refresh_interval"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel>Data Refresh Interval</FormLabel>
                             <Select
                               onValueChange={field.onChange}
                               defaultValue={field.value}
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select frequency" />
+                                  <SelectValue placeholder="Select interval" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="on_demand">On Demand</SelectItem>
-                                <SelectItem value="weekly">Weekly</SelectItem>
-                                <SelectItem value="monthly">Monthly</SelectItem>
+                                <SelectItem value="1 hour">Every hour</SelectItem>
+                                <SelectItem value="6 hours">Every 6 hours</SelectItem>
+                                <SelectItem value="12 hours">Every 12 hours</SelectItem>
+                                <SelectItem value="24 hours">Daily</SelectItem>
                               </SelectContent>
                             </Select>
                           </FormItem>
                         )}
                       />
+                    </Card>
+                  </TabsContent>
 
-                      {form.watch("audit_frequency") !== "on_demand" && (
-                        <>
-                          <Separator className="my-6" />
-                          <FormField
-                            control={form.control}
-                            name="audit_schedule_time"
-                            render={({ field }) => (
-                              <FormItem className="space-y-2">
-                                <FormLabel>Schedule Time</FormLabel>
+                  <TabsContent value="audit" className="mt-0">
+                    <Card className="p-8">
+                      <div className="space-y-6">
+                        <FormField
+                          control={form.control}
+                          name="audit_frequency"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <FormLabel>Audit Frequency</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
                                 <FormControl>
-                                  <Input type="time" {...field} />
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select frequency" />
+                                  </SelectTrigger>
                                 </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                        </>
-                      )}
-                    </div>
-                  </Card>
-                </TabsContent>
+                                <SelectContent>
+                                  <SelectItem value="on_demand">On Demand</SelectItem>
+                                  <SelectItem value="weekly">Weekly</SelectItem>
+                                  <SelectItem value="monthly">Monthly</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
 
-                <TabsContent value="notifications">
-                  <Card className="p-8">
-                    <div className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="email_notifications"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between space-x-4">
-                            <div>
-                              <FormLabel>Email Notifications</FormLabel>
-                              <FormDescription>
-                                Receive audit reports via email
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
+                        {form.watch("audit_frequency") !== "on_demand" && (
+                          <>
+                            <Separator className="my-6" />
+                            <FormField
+                              control={form.control}
+                              name="audit_schedule_time"
+                              render={({ field }) => (
+                                <FormItem className="space-y-2">
+                                  <FormLabel>Schedule Time</FormLabel>
+                                  <FormControl>
+                                    <Input type="time" {...field} />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </>
                         )}
-                      />
+                      </div>
+                    </Card>
+                  </TabsContent>
 
+                  <TabsContent value="notifications" className="mt-0">
+                    <Card className="p-8">
+                      <div className="space-y-6">
+                        <FormField
+                          control={form.control}
+                          name="email_notifications"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center justify-between space-x-4">
+                              <div>
+                                <FormLabel>Email Notifications</FormLabel>
+                                <FormDescription>
+                                  Receive audit reports via email
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="sms_notifications"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center justify-between space-x-4">
+                              <div>
+                                <FormLabel>SMS Notifications</FormLabel>
+                                <FormDescription>
+                                  Receive alerts via SMS
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="benchmarks" className="mt-0">
+                    <Card className="p-8">
                       <FormField
                         control={form.control}
-                        name="sms_notifications"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between space-x-4">
-                            <div>
-                              <FormLabel>SMS Notifications</FormLabel>
-                              <FormDescription>
-                                Receive alerts via SMS
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="benchmarks">
-                  <Card className="p-8">
-                    <FormField
-                      control={form.control}
-                      name="ai_explanation_detail"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel>AI Explanation Detail</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select detail level" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="basic">Basic</SelectItem>
-                              <SelectItem value="intermediate">Intermediate</SelectItem>
-                              <SelectItem value="advanced">Advanced</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="display">
-                  <Card className="p-8">
-                    <div className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="theme"
+                        name="ai_explanation_detail"
                         render={({ field }) => (
                           <FormItem className="space-y-2">
-                            <FormLabel>Theme</FormLabel>
+                            <FormLabel>AI Explanation Detail</FormLabel>
                             <Select
                               onValueChange={field.onChange}
                               defaultValue={field.value}
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select theme" />
+                                  <SelectValue placeholder="Select detail level" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="light">Light</SelectItem>
-                                <SelectItem value="dark">Dark</SelectItem>
-                                <SelectItem value="system">System</SelectItem>
+                                <SelectItem value="basic">Basic</SelectItem>
+                                <SelectItem value="intermediate">Intermediate</SelectItem>
+                                <SelectItem value="advanced">Advanced</SelectItem>
                               </SelectContent>
                             </Select>
                           </FormItem>
                         )}
                       />
+                    </Card>
+                  </TabsContent>
 
-                      <FormField
-                        control={form.control}
-                        name="dashboard_layout"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <FormLabel>Dashboard Layout</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
+                  <TabsContent value="display" className="mt-0">
+                    <Card className="p-8">
+                      <div className="space-y-6">
+                        <FormField
+                          control={form.control}
+                          name="theme"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <FormLabel>Theme</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select theme" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="light">Light</SelectItem>
+                                  <SelectItem value="dark">Dark</SelectItem>
+                                  <SelectItem value="system">System</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="dashboard_layout"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <FormLabel>Dashboard Layout</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select layout" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="grid">Grid</SelectItem>
+                                  <SelectItem value="list">List</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="security" className="mt-0">
+                    <Card className="p-8">
+                      <div className="space-y-6">
+                        <FormField
+                          control={form.control}
+                          name="two_factor_enabled"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center justify-between space-x-4">
+                              <div>
+                                <FormLabel>Two-Factor Authentication</FormLabel>
+                                <FormDescription>
+                                  Enhance your account security
+                                </FormDescription>
+                              </div>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select layout" />
-                                </SelectTrigger>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
                               </FormControl>
-                              <SelectContent>
-                                <SelectItem value="grid">Grid</SelectItem>
-                                <SelectItem value="list">List</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </Card>
-                </TabsContent>
+                            </FormItem>
+                          )}
+                        />
 
-                <TabsContent value="security">
-                  <Card className="p-8">
-                    <div className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="two_factor_enabled"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between space-x-4">
-                            <div>
-                              <FormLabel>Two-Factor Authentication</FormLabel>
-                              <FormDescription>
-                                Enhance your account security
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                        <FormField
+                          control={form.control}
+                          name="data_sharing_enabled"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center justify-between space-x-4">
+                              <div>
+                                <FormLabel>Data Sharing</FormLabel>
+                                <FormDescription>
+                                  Share anonymous data for better insights
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </Card>
+                  </TabsContent>
 
-                      <FormField
-                        control={form.control}
-                        name="data_sharing_enabled"
-                        render={({ field }) => (
-                          <FormItem className="flex items-center justify-between space-x-4">
-                            <div>
-                              <FormLabel>Data Sharing</FormLabel>
-                              <FormDescription>
-                                Share anonymous data for better insights
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="api">
-                  <Card className="p-8">
-                    <div className="text-sm text-gray-500">
-                      API key management coming soon...
-                    </div>
-                  </Card>
-                </TabsContent>
+                  <TabsContent value="api" className="mt-0">
+                    <Card className="p-8">
+                      <div className="text-sm text-gray-500">
+                        API key management coming soon...
+                      </div>
+                    </Card>
+                  </TabsContent>
+                </div>
               </Tabs>
             </form>
           </Form>
