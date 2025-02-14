@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Analytics from "./pages/Analytics";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
 
@@ -37,6 +38,10 @@ function App() {
         <Route
           path="/"
           element={isAuthenticated ? <Index /> : <Navigate to="/auth" />}
+        />
+        <Route
+          path="/analytics"
+          element={isAuthenticated ? <Analytics /> : <Navigate to="/auth" />}
         />
         <Route
           path="/auth"
