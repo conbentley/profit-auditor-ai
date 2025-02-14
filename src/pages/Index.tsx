@@ -4,6 +4,7 @@ import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import StatCard from "@/components/Dashboard/StatCard";
 import FinancialIntegrations from "@/components/Dashboard/FinancialIntegrations";
+import AuditReport from "@/components/Dashboard/AuditReport";
 import { Card } from "@/components/ui/card";
 
 const Index = () => {
@@ -50,45 +51,7 @@ const Index = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FinancialIntegrations />
-
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Latest Audit Insights</h2>
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="p-4 bg-gray-50 rounded-lg border border-gray-100"
-                  >
-                    <h3 className="font-medium text-gray-900">
-                      Cost Optimization Opportunity #{i}
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-600">
-                      AI analysis suggests potential savings in operational costs
-                      through vendor consolidation.
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  "Run New Audit",
-                  "Connect Software",
-                  "View Reports",
-                  "Update Settings",
-                ].map((action) => (
-                  <button
-                    key={action}
-                    className="p-4 text-left bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors"
-                  >
-                    <span className="font-medium text-gray-900">{action}</span>
-                  </button>
-                ))}
-              </div>
-            </Card>
+            <AuditReport />
           </div>
         </main>
       </div>
