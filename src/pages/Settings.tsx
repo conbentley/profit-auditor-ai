@@ -122,20 +122,24 @@ export default function Settings() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <Card className="p-4">
-                  <TabsList className="grid grid-cols-4 lg:grid-cols-8 w-full">
-                    <TabsTrigger value="profile">Profile</TabsTrigger>
-                    <TabsTrigger value="integrations">Integrations</TabsTrigger>
-                    <TabsTrigger value="audit">Audit</TabsTrigger>
-                    <TabsTrigger value="notifications">Notifications</TabsTrigger>
-                    <TabsTrigger value="benchmarks">Benchmarks</TabsTrigger>
-                    <TabsTrigger value="display">Display</TabsTrigger>
-                    <TabsTrigger value="security">Security</TabsTrigger>
-                    <TabsTrigger value="api">API</TabsTrigger>
+                <Card className="p-6 w-full max-w-5xl mx-auto">
+                  <TabsList className="grid grid-rows-2 gap-y-4 w-full">
+                    <div className="grid grid-cols-4 gap-x-4">
+                      <TabsTrigger value="profile" className="px-6">Profile</TabsTrigger>
+                      <TabsTrigger value="integrations" className="px-6">Integrations</TabsTrigger>
+                      <TabsTrigger value="audit" className="px-6">Audit</TabsTrigger>
+                      <TabsTrigger value="notifications" className="px-6">Notifications</TabsTrigger>
+                    </div>
+                    <div className="grid grid-cols-4 gap-x-4">
+                      <TabsTrigger value="benchmarks" className="px-6">Benchmarks</TabsTrigger>
+                      <TabsTrigger value="display" className="px-6">Display</TabsTrigger>
+                      <TabsTrigger value="security" className="px-6">Security</TabsTrigger>
+                      <TabsTrigger value="api" className="px-6">API</TabsTrigger>
+                    </div>
                   </TabsList>
                 </Card>
 
-                <div className="mt-6">
+                <div className="mt-6 max-w-5xl mx-auto">
                   <TabsContent value="profile" className="mt-0">
                     <Card className="p-8">
                       <FormField
