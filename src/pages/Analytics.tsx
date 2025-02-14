@@ -1,61 +1,18 @@
 
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import AuditReport from "@/components/Dashboard/AuditReport";
 import { Loader2 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  Cell
-} from "recharts";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
-
-// Helper function to format currency
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(value);
-};
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+import RevenueTrendChart from "@/components/Analytics/RevenueTrendChart";
+import ExpenseDistributionChart from "@/components/Analytics/ExpenseDistributionChart";
+import CashFlowChart from "@/components/Analytics/CashFlowChart";
+import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 
 const Analytics = () => {
   const [timeRange] = useState("month"); // We can extend this later for different time ranges
 
-  const { data: transactionsData, isLoading } = useQuery({
-    queryKey: ['analytics-transactions'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 1);
-
-      const { data, error } = await supabase
-        .from('financial_transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('transaction_date', startDate.toISOString())
-        .order('transaction_date', { ascending: true });
-
-      if (error) throw error;
-      return data;
-    }
-  });
+  const { data: transactionsData, isLoading } = useAnalyticsData();
 
   if (isLoading) {
     return (
@@ -126,78 +83,9 @@ const Analytics = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Revenue Trend */}
-            <Card className="p-6">
-              <h2 className="text-lg font-medium mb-4">Revenue Trend</h2>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={revenueData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis 
-                      tickFormatter={(value) => formatCurrency(value)}
-                    />
-                    <Tooltip 
-                      formatter={(value: number) => formatCurrency(value)}
-                    />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="amount" 
-                      stroke="#0088FE" 
-                      name="Revenue"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-
-            {/* Expense Distribution */}
-            <Card className="p-6">
-              <h2 className="text-lg font-medium mb-4">Expense Distribution</h2>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieChartData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      label={(entry) => entry.name}
-                    >
-                      {pieChartData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-
-            {/* Cash Flow Analysis */}
-            <Card className="p-6 lg:col-span-2">
-              <h2 className="text-lg font-medium mb-4">Cash Flow Analysis</h2>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={cashFlowData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                    <Legend />
-                    <Bar 
-                      dataKey="amount" 
-                      name="Net Cash Flow"
-                      fill="#8884d8"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
+            <RevenueTrendChart data={revenueData} />
+            <ExpenseDistributionChart data={pieChartData} />
+            <CashFlowChart data={cashFlowData} />
           </div>
         </main>
       </div>
