@@ -1,3 +1,4 @@
+
 export type AccountingProvider = 'xero' | 'quickbooks' | 'sage';
 
 export interface FinancialIntegration {
