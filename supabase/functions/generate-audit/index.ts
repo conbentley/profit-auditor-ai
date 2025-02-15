@@ -21,6 +21,15 @@ interface FinancialMetrics {
   cost_breakdown: Record<string, number>;
 }
 
+interface AuditFinding {
+  category: 'subscription' | 'pricing' | 'tax' | 'marketing' | 'inventory';
+  severity: 'critical' | 'medium' | 'low';
+  title: string;
+  description: string;
+  potential_savings: number;
+  resolution_steps: Record<string, any>;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -69,7 +78,21 @@ serve(async (req) => {
       cost_breakdown
     };
 
-    // Generate AI analysis
+    // Fetch competitor prices for comparison
+    const { data: competitorPrices } = await supabase
+      .from('competitor_prices')
+      .select('*')
+      .eq('user_id', user_id);
+
+    // Fetch marketing performance data
+    const { data: marketingData } = await supabase
+      .from('marketing_performance')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('date', startDate.toISOString())
+      .lte('date', endDate.toISOString());
+
+    // Generate AI analysis with enhanced context
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -77,31 +100,52 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: 'You are a financial analyst AI that provides detailed business insights and recommendations.'
+            content: `You are an expert financial analyst AI that identifies profit leaks and provides actionable recommendations. 
+            Focus on these key areas:
+            1. Subscription optimization
+            2. Pricing strategy vs competitors
+            3. Tax efficiency
+            4. Marketing ROI
+            5. Inventory management
+            
+            For each finding, provide specific, quantified savings estimates and clear step-by-step resolution steps.`
           },
           {
             role: 'user',
-            content: `Analyze these financial metrics and provide insights and recommendations:
-              Revenue: ${financialData.revenue}
-              Expenses: ${financialData.expenses}
-              Profit Margin: ${financialData.profit_margin.toFixed(2)}%
-              Cost Breakdown: ${JSON.stringify(financialData.cost_breakdown)}
+            content: `Analyze these financial metrics and provide detailed insights:
+              Financial Data: ${JSON.stringify(financialData)}
+              Competitor Prices: ${JSON.stringify(competitorPrices)}
+              Marketing Performance: ${JSON.stringify(marketingData)}
               
-              Provide a detailed analysis including:
-              1. Summary of key performance indicators
-              2. Areas of concern or opportunity
-              3. Specific, actionable recommendations
+              Provide a comprehensive analysis including:
+              1. Key performance indicators and their trends
+              2. Specific profit leaks identified
+              3. Prioritized recommendations with estimated savings
               4. Industry benchmarking insights
               
               Format the response as JSON with these keys:
               {
                 summary: string,
                 kpis: [{ metric: string, value: string, trend: string }],
-                recommendations: [{ title: string, description: string, impact: string, difficulty: string }]
+                findings: [{ 
+                  category: string,
+                  severity: string,
+                  title: string,
+                  description: string,
+                  potential_savings: number,
+                  resolution_steps: object
+                }],
+                recommendations: [{ 
+                  title: string,
+                  description: string,
+                  impact: string,
+                  difficulty: string,
+                  estimated_savings: number
+                }]
               }`
           }
         ],
@@ -112,7 +156,7 @@ serve(async (req) => {
     const analysis = JSON.parse(aiResponse.choices[0].message.content);
 
     // Store audit results
-    const { error: insertError } = await supabase
+    const { data: audit, error: insertError } = await supabase
       .from('financial_audits')
       .insert({
         user_id,
@@ -122,13 +166,36 @@ serve(async (req) => {
         recommendations: analysis.recommendations,
         analysis_metadata: {
           data_source: 'transactions',
-          ai_model: 'gpt-4',
+          ai_model: 'gpt-4o-mini',
           timestamp: new Date().toISOString(),
           metrics: financialData
         }
-      });
+      })
+      .select()
+      .single();
 
     if (insertError) throw insertError;
+
+    // Store individual findings
+    if (analysis.findings) {
+      const findings = analysis.findings.map((finding: AuditFinding) => ({
+        user_id,
+        audit_id: audit.id,
+        category: finding.category,
+        severity: finding.severity,
+        title: finding.title,
+        description: finding.description,
+        potential_savings: finding.potential_savings,
+        resolution_steps: finding.resolution_steps,
+        status: 'pending'
+      }));
+
+      const { error: findingsError } = await supabase
+        .from('audit_findings')
+        .insert(findings);
+
+      if (findingsError) throw findingsError;
+    }
 
     return new Response(
       JSON.stringify(analysis),
