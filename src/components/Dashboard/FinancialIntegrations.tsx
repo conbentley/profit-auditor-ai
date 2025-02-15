@@ -14,33 +14,12 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AccountingProvider } from "@/types/financial";
-import { Upload } from "lucide-react";
 
 export default function FinancialIntegrations() {
   const [isLoading, setIsLoading] = useState(false);
   const [provider, setProvider] = useState<AccountingProvider | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      // Check if file is an allowed type
-      const allowedTypes = [
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/csv'
-      ];
-      
-      if (!allowedTypes.includes(selectedFile.type)) {
-        toast.error("Please upload an Excel or CSV file");
-        return;
-      }
-      
-      setFile(selectedFile);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,37 +35,12 @@ export default function FinancialIntegrations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      let documents = [];
-
-      if (file) {
-        // Upload file to Supabase Storage
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('financial_documents')
-          .upload(fileName, file);
-
-        if (uploadError) throw uploadError;
-
-        if (uploadData) {
-          documents.push({
-            name: file.name,
-            path: fileName,
-            type: file.type,
-            size: file.size,
-            uploaded_at: new Date().toISOString()
-          });
-        }
-      }
-
       const { error } = await supabase.from('financial_integrations').insert({
         provider,
         credentials: {
           api_key: apiKey,
           api_secret: apiSecret,
         },
-        documents,
         user_id: user.id,
       });
 
@@ -96,7 +50,6 @@ export default function FinancialIntegrations() {
       setProvider(null);
       setApiKey('');
       setApiSecret('');
-      setFile(null);
     } catch (error) {
       toast.error("Failed to connect integration");
       console.error("Integration error:", error);
@@ -148,28 +101,6 @@ export default function FinancialIntegrations() {
             placeholder="Enter API secret"
             required
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="file">Upload Spreadsheet (Optional)</Label>
-          <div className="flex items-center gap-4 h-10 border rounded-md px-3">
-            <Input
-              id="file"
-              type="file"
-              onChange={handleFileChange}
-              accept=".xlsx,.xls,.csv"
-              className="file:mr-4 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 border-0 p-0"
-            />
-            {file && (
-              <div className="flex items-center gap-2 text-sm text-gray-500 whitespace-nowrap">
-                <Upload className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{file.name}</span>
-              </div>
-            )}
-          </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Supported formats: Excel (.xlsx, .xls) and CSV
-          </p>
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>

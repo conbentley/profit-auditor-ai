@@ -76,7 +76,6 @@ export type Database = {
         Row: {
           created_at: string
           credentials: Json
-          documents: Json | null
           id: string
           is_active: boolean | null
           last_sync_at: string | null
@@ -88,7 +87,6 @@ export type Database = {
         Insert: {
           created_at?: string
           credentials: Json
-          documents?: Json | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
@@ -100,7 +98,6 @@ export type Database = {
         Update: {
           created_at?: string
           credentials?: Json
-          documents?: Json | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
