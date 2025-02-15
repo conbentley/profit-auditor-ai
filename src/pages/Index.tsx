@@ -3,7 +3,6 @@ import { DollarSign, TrendingUp, PieChart, AlertCircle } from "lucide-react";
 import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import StatCard from "@/components/Dashboard/StatCard";
-import FinancialIntegrations from "@/components/Dashboard/FinancialIntegrations";
 import AuditReport from "@/components/Dashboard/AuditReport";
 import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
 import { formatCurrency, formatPercentage } from "@/lib/formatters";
@@ -70,8 +69,7 @@ const Index = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <FinancialIntegrations />
+          <div>
             <AuditReport />
           </div>
         </main>
