@@ -15,6 +15,31 @@ interface MonthlyMetrics {
   };
 }
 
+// Helper function to validate the shape of monthly metrics
+function isValidMonthlyMetrics(data: unknown): data is MonthlyMetrics {
+  if (!data || typeof data !== 'object') return false;
+  
+  const metrics = data as Record<string, unknown>;
+  
+  const hasRequiredProperties = 
+    typeof metrics.revenue === 'number' &&
+    typeof metrics.profit_margin === 'number' &&
+    typeof metrics.expense_ratio === 'number' &&
+    typeof metrics.audit_alerts === 'number' &&
+    metrics.previous_month && typeof metrics.previous_month === 'object';
+    
+  if (!hasRequiredProperties) return false;
+  
+  const previousMonth = metrics.previous_month as Record<string, unknown>;
+  
+  return (
+    typeof previousMonth.revenue === 'number' &&
+    typeof previousMonth.profit_margin === 'number' &&
+    typeof previousMonth.expense_ratio === 'number' &&
+    typeof previousMonth.audit_alerts === 'number'
+  );
+}
+
 export function useDashboardMetrics() {
   return useQuery({
     queryKey: ['dashboard-metrics'],
@@ -32,7 +57,7 @@ export function useDashboardMetrics() {
 
       if (error) throw error;
       
-      if (!data) {
+      if (!data || !isValidMonthlyMetrics(data.monthly_metrics)) {
         return {
           metrics: {
             revenue: 0,
@@ -49,7 +74,7 @@ export function useDashboardMetrics() {
         };
       }
 
-      const currentMetrics = data.monthly_metrics as MonthlyMetrics;
+      const currentMetrics = data.monthly_metrics;
       const previousMetrics = currentMetrics.previous_month;
 
       const calculateChange = (current: number, previous: number) => {
