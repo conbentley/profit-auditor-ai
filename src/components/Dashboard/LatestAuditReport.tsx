@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -49,7 +50,13 @@ export function LatestAuditReport() {
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching latest audit:', error);
+        throw error;
+      }
+      
+      console.log('Latest audit data:', data); // Add this log to debug
+      
       if (!data) return null;
 
       const parsedData: AuditReport = {
@@ -71,7 +78,7 @@ export function LatestAuditReport() {
 
       return parsedData;
     },
-    refetchInterval: 30000, // Poll every 30 seconds
+    refetchInterval: 5000, // Poll more frequently (every 5 seconds) to catch new audits
   });
 
   useEffect(() => {
@@ -84,7 +91,8 @@ export function LatestAuditReport() {
           schema: 'public',
           table: 'financial_audits'
         },
-        () => {
+        (payload) => {
+          console.log('New audit received:', payload); // Add this log to debug
           queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
         }
       )
