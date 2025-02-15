@@ -55,7 +55,21 @@ serve(async (req) => {
         return acc;
       }, {} as Record<string, number>) ?? {};
 
-    // Fetch additional data for enhanced recommendations
+    // Fetch marketplace data
+    const { data: marketplaceData } = await supabase
+      .from('marketplace_settings')
+      .select(`
+        *,
+        ecommerce_integrations!inner (
+          platform,
+          store_name,
+          last_sync_at,
+          last_sync_status
+        )
+      `)
+      .eq('user_id', user_id);
+
+    // Fetch marketing performance data
     const { data: marketingData } = await supabase
       .from('marketing_performance')
       .select('*')
@@ -63,15 +77,33 @@ serve(async (req) => {
       .gte('date', startDate.toISOString())
       .lte('date', endDate.toISOString());
 
+    // Fetch competitor prices
     const { data: competitorPrices } = await supabase
       .from('competitor_prices')
       .select('*')
       .eq('user_id', user_id);
 
+    // Fetch e-commerce products
     const { data: products } = await supabase
       .from('ecommerce_products')
       .select('*')
       .eq('user_id', user_id);
+
+    // Fetch e-commerce sales
+    const { data: sales } = await supabase
+      .from('ecommerce_sales')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('sale_date', startDate.toISOString())
+      .lte('sale_date', endDate.toISOString());
+
+    // Fetch e-commerce metrics
+    const { data: ecommerceMetrics } = await supabase
+      .from('ecommerce_metrics')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('metric_date', startDate.toISOString())
+      .lte('metric_date', endDate.toISOString());
 
     const financialData = {
       revenue,
@@ -80,7 +112,10 @@ serve(async (req) => {
       cost_breakdown,
       marketing_performance: marketingData || [],
       competitor_prices: competitorPrices || [],
-      inventory: products || []
+      inventory: products || [],
+      marketplace_integrations: marketplaceData || [],
+      ecommerce_sales: sales || [],
+      ecommerce_metrics: ecommerceMetrics || [],
     };
 
     // Generate AI analysis with enhanced focus areas
@@ -95,11 +130,15 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an advanced financial analyst AI specializing in business optimization. 
-            Focus on three key areas:
-            1. Dynamic Pricing Strategy: Analyze competitor prices and market trends
-            2. Marketing ROI Optimization: Evaluate marketing spend effectiveness
+            content: `You are an advanced financial and e-commerce analyst AI specializing in business optimization. 
+            Focus on these key areas:
+            1. Dynamic Pricing Strategy: Analyze competitor prices, market trends, and cross-marketplace opportunities
+            2. Marketing ROI Optimization: Evaluate marketing spend effectiveness across channels
             3. Inventory Management: Identify opportunities to optimize stock levels
+            4. Marketplace Performance: Compare performance across different marketplaces (Amazon, eBay, Etsy)
+            5. Cross-Platform Strategy: Suggest opportunities for cross-platform selling and optimization
+            6. Financial Health: Analyze profit margins, expense ratios, and cash flow
+            7. Customer Behavior: Analyze purchase patterns and suggest customer retention strategies
             
             Return ONLY a JSON object with this exact structure:
             {
@@ -113,7 +152,7 @@ serve(async (req) => {
                   "description": "string",
                   "impact": "High/Medium/Low",
                   "difficulty": "Easy/Medium/Hard",
-                  "category": "Pricing/Marketing/Inventory"
+                  "category": "Pricing/Marketing/Inventory/Marketplace/Financial"
                 }
               ]
             }`
