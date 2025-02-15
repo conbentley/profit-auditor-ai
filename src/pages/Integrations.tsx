@@ -7,14 +7,34 @@ import FinancialIntegrations from "@/components/Dashboard/FinancialIntegrations"
 import EcommerceIntegrations from "@/components/Dashboard/EcommerceIntegrations";
 import MarketplaceIntegrations from "@/components/Dashboard/MarketplaceIntegrations";
 import CRMIntegrations from "@/components/Dashboard/CRMIntegrations";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
 export default function Integrations() {
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        console.log("Your user ID is:", user.id);
+      }
+    };
+    getUserId();
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1">
         <Header />
         <main className="p-6">
+          {userId && (
+            <Card className="p-4 mb-4 bg-blue-50">
+              <p className="text-sm">Your user ID is: {userId}</p>
+            </Card>
+          )}
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-6">Integrations</h2>
             <Tabs defaultValue="financial" className="space-y-6">
