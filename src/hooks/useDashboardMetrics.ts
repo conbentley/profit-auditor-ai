@@ -49,7 +49,7 @@ export function useDashboardMetrics() {
         };
       }
 
-      const currentMetrics = data.monthly_metrics as MonthlyMetrics;
+      const currentMetrics = data.monthly_metrics as unknown as MonthlyMetrics;
       const previousMetrics = currentMetrics.previous_month;
 
       const calculateChange = (current: number, previous: number) => {
