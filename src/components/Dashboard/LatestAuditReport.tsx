@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -6,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, RefreshCcw, MessageSquare, Download } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -176,17 +176,36 @@ ${recommendationsCSV}
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Latest Audit Results</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['latest-audit'] })}
-        >
-          <RefreshCcw className="h-4 w-4 mr-1" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['latest-audit'] })}
+          >
+            <RefreshCcw className="h-4 w-4 mr-1" />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            size="sm"
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
+          <Button
+            onClick={handleChatWithAI}
+            size="sm"
+            className="gap-2"
+          >
+            <MessageSquare className="h-4 w-4" />
+            AI Profit Chat
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -203,84 +222,36 @@ ${recommendationsCSV}
         ))}
       </div>
 
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button variant="ghost" className="w-full justify-start">
-            View Full Report
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-4xl w-[90vw]">
-          <DialogHeader>
-            <DialogTitle>Audit Report Details</DialogTitle>
-          </DialogHeader>
-          
-          <ScrollArea className="mt-4 max-h-[60vh] overflow-y-auto pr-4">
-            <div className="space-y-6">
-              <div>
-                <h4 className="font-medium mb-2">Executive Summary</h4>
-                <p className="text-muted-foreground">{latestAudit?.summary}</p>
-              </div>
+      <ScrollArea className="h-[500px] rounded-md border p-4">
+        <div className="space-y-6">
+          <div>
+            <h4 className="font-medium mb-2">Executive Summary</h4>
+            <p className="text-muted-foreground">{latestAudit?.summary}</p>
+          </div>
 
-              <div>
-                <h4 className="font-medium mb-2">KPIs</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {latestAudit?.kpis.map((kpi, index) => (
-                    <Card key={index} className="p-4">
-                      <div className="text-sm text-muted-foreground">{kpi.metric}</div>
-                      <div className="text-lg font-semibold mt-1">{kpi.value}</div>
-                      <div className={`text-sm mt-1 ${
-                        kpi.trend.includes('+') ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {kpi.trend}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Recommendations</h4>
-                <div className="space-y-4">
-                  {latestAudit?.recommendations.map((rec, index) => (
-                    <Card key={index} className="p-4">
-                      <h5 className="font-medium">{rec.title}</h5>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {rec.description}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                          Impact: {rec.impact}
-                        </span>
-                        <span className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded">
-                          Difficulty: {rec.difficulty}
-                        </span>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
+          <div>
+            <h4 className="font-medium mb-2">Recommendations</h4>
+            <div className="space-y-4">
+              {latestAudit?.recommendations.map((rec, index) => (
+                <Card key={index} className="p-4">
+                  <h5 className="font-medium">{rec.title}</h5>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {rec.description}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                      Impact: {rec.impact}
+                    </span>
+                    <span className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded">
+                      Difficulty: {rec.difficulty}
+                    </span>
+                  </div>
+                </Card>
+              ))}
             </div>
-          </ScrollArea>
-
-          <DialogFooter className="mt-6 flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={handleExport}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-            <Button
-              onClick={handleChatWithAI}
-              className="gap-2"
-            >
-              <MessageSquare className="h-4 w-4" />
-              AI Profit Chat
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }
