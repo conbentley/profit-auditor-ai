@@ -1,5 +1,5 @@
 
-import { DollarSign, TrendingUp, PieChart, AlertCircle } from "lucide-react";
+import { DollarSign, TrendingUp, PieChart, AlertCircle, FileSpreadsheet } from "lucide-react";
 import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import StatCard from "@/components/Dashboard/StatCard";
@@ -10,12 +10,18 @@ import { ChatMessage } from "@/components/Chat/ChatMessage";
 import { ChatInput } from "@/components/Chat/ChatInput";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const Index = () => {
+  const queryClient = useQueryClient();
   const { data: metricsData, isLoading } = useDashboardMetrics();
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [query, setQuery] = useState('');
   const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [isGeneratingAudit, setIsGeneratingAudit] = useState(false);
 
   const metrics = metricsData?.metrics ?? {
     revenue: 0,
@@ -29,6 +35,37 @@ const Index = () => {
     profit_margin: 0,
     expense_ratio: 0,
     audit_alerts: 0
+  };
+
+  const handleGenerateAudit = async () => {
+    try {
+      setIsGeneratingAudit(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const today = new Date();
+      const response = await fetch('/api/generate-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          month: today.getMonth() + 1,
+          year: today.getFullYear()
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate audit');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
+      toast.success('New audit report generated successfully');
+    } catch (error) {
+      console.error('Error generating audit:', error);
+      toast.error('Failed to generate audit report');
+    } finally {
+      setIsGeneratingAudit(false);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -99,6 +136,18 @@ const Index = () => {
               trendUp={changes.audit_alerts < 0}
               isLoading={isLoading}
             />
+          </div>
+
+          <div className="flex justify-center mb-6">
+            <Button
+              size="lg"
+              className="gap-2"
+              onClick={handleGenerateAudit}
+              disabled={isGeneratingAudit}
+            >
+              <FileSpreadsheet className="h-5 w-5" />
+              {isGeneratingAudit ? 'Generating Audit...' : 'Generate New Profit Audit'}
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
