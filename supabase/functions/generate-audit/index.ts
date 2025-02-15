@@ -118,7 +118,7 @@ serve(async (req) => {
       ecommerce_metrics: ecommerceMetrics || [],
     };
 
-    // Generate AI analysis with enhanced focus areas
+    // Generate AI analysis with enhanced focus areas including waste management
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -139,6 +139,12 @@ serve(async (req) => {
             5. Cross-Platform Strategy: Suggest opportunities for cross-platform selling and optimization
             6. Financial Health: Analyze profit margins, expense ratios, and cash flow
             7. Customer Behavior: Analyze purchase patterns and suggest customer retention strategies
+            8. Waste Management and Sustainability:
+               - Identify potential areas of waste in inventory, packaging, and operations
+               - Analyze cost of waste in terms of unused inventory, returns, and damaged goods
+               - Suggest sustainable practices that can reduce costs and improve efficiency
+               - Look for opportunities to implement circular economy principles
+               - Consider environmental impact and potential cost savings from waste reduction
             
             Return ONLY a JSON object with this exact structure:
             {
@@ -152,7 +158,7 @@ serve(async (req) => {
                   "description": "string",
                   "impact": "High/Medium/Low",
                   "difficulty": "Easy/Medium/Hard",
-                  "category": "Pricing/Marketing/Inventory/Marketplace/Financial"
+                  "category": "Pricing/Marketing/Inventory/Marketplace/Financial/Waste"
                 }
               ]
             }`
