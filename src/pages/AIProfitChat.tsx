@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Send, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Dashboard/Header";
@@ -55,6 +65,7 @@ function parseMessages(rawMessages: Json): ChatMessage[] {
 export default function AIProfitChat() {
   const [query, setQuery] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -173,6 +184,7 @@ export default function AIProfitChat() {
     try {
       await updateChat.mutateAsync([]);
       toast.success("Chat history cleared");
+      setShowClearConfirm(false);
     } catch (error) {
       console.error("Failed to clear chat:", error);
       toast.error("Failed to clear chat history");
@@ -199,7 +211,7 @@ export default function AIProfitChat() {
               {chatHistory?.messages?.length > 0 && (
                 <Button
                   variant="outline"
-                  onClick={clearChat}
+                  onClick={() => setShowClearConfirm(true)}
                   className="flex items-center gap-2"
                   disabled={updateChat.isPending}
                 >
@@ -271,6 +283,27 @@ export default function AIProfitChat() {
           </Card>
         </main>
       </div>
+
+      {/* Clear Chat Confirmation Modal */}
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Chat History</AlertDialogTitle>
+            <AlertDialogDescription>
+              Warning: This conversation will be permanently deleted. Do you want to permanently delete it?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={clearChat}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
