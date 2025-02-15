@@ -4,7 +4,6 @@ import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import { Card } from "@/components/ui/card";
 import SecuritySettings from "@/components/Settings/SecuritySettings";
-import FinancialIntegrations from "@/components/Dashboard/FinancialIntegrations";
 
 export default function Settings() {
   return (
@@ -19,15 +18,10 @@ export default function Settings() {
             <Tabs defaultValue="security" className="space-y-6">
               <TabsList>
                 <TabsTrigger value="security">Security & Privacy</TabsTrigger>
-                <TabsTrigger value="integrations">Integrations</TabsTrigger>
               </TabsList>
 
               <TabsContent value="security" className="space-y-6">
                 <SecuritySettings />
-              </TabsContent>
-
-              <TabsContent value="integrations">
-                <FinancialIntegrations />
               </TabsContent>
             </Tabs>
           </Card>

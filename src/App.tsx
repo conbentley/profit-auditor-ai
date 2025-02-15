@@ -8,6 +8,7 @@ import Analytics from "./pages/Analytics";
 import AuditHistory from "./pages/AuditHistory";
 import Settings from "./pages/Settings";
 import AIProfitChat from "./pages/AIProfitChat";
+import Integrations from "./pages/Integrations";
 import { useEffect, useState } from "react";
 import { supabase } from "./integrations/supabase/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -62,6 +63,10 @@ function App() {
           <Route
             path="/settings"
             element={isAuthenticated ? <Settings /> : <Navigate to="/auth" />}
+          />
+          <Route
+            path="/integrations"
+            element={isAuthenticated ? <Integrations /> : <Navigate to="/auth" />}
           />
           <Route
             path="/auth"
