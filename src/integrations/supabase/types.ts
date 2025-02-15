@@ -396,6 +396,7 @@ export type Database = {
           last_sync_at: string | null
           last_sync_status: Json | null
           metadata: Json | null
+          next_sync_at: string | null
           provider: Database["public"]["Enums"]["accounting_provider"]
           sync_frequency: unknown | null
           updated_at: string
@@ -412,6 +413,7 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_status?: Json | null
           metadata?: Json | null
+          next_sync_at?: string | null
           provider: Database["public"]["Enums"]["accounting_provider"]
           sync_frequency?: unknown | null
           updated_at?: string
@@ -428,6 +430,7 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_status?: Json | null
           metadata?: Json | null
+          next_sync_at?: string | null
           provider?: Database["public"]["Enums"]["accounting_provider"]
           sync_frequency?: unknown | null
           updated_at?: string
