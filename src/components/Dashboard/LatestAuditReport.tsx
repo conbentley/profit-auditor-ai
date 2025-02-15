@@ -139,7 +139,7 @@ ${recommendationsCSV}
   };
 
   const handleChatWithAI = () => {
-    navigate('/ai-profit-chat');
+    navigate('/chat');
   };
 
   if (isLoading) {
