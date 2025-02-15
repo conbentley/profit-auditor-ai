@@ -9,8 +9,7 @@ import { toast } from "sonner";
 const ProfileSettings = () => {
   const { settings, updateSettings, isUpdating } = useUserSettings();
   const [formData, setFormData] = useState({
-    full_name: settings?.full_name || '',
-    email: settings?.email || '',
+    full_name: '',  // This will come from profiles table
     phone_number: settings?.phone_number || '',
     job_title: settings?.job_title || '',
     company_website: settings?.company_website || '',
@@ -31,7 +30,16 @@ const ProfileSettings = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateSettings(formData);
+    // Only update fields that exist in the user_settings table
+    const settingsData = {
+      phone_number: formData.phone_number,
+      job_title: formData.job_title,
+      company_website: formData.company_website,
+      bio: formData.bio,
+      city: formData.city,
+      country: formData.country,
+    };
+    updateSettings(settingsData);
   };
 
   return (
@@ -45,18 +53,7 @@ const ProfileSettings = () => {
             value={formData.full_name}
             onChange={handleChange}
             placeholder="John Doe"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="email" className="text-sm font-medium">Email</label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="john@example.com"
+            disabled // Disabled because it should be managed in profiles table
           />
         </div>
 
