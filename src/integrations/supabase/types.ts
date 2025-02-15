@@ -175,6 +175,10 @@ export type Database = {
           audit_schedule_day: number | null
           audit_schedule_time: string | null
           avatar_url: string | null
+          bio: string | null
+          city: string | null
+          company_website: string | null
+          country: string | null
           created_at: string
           dashboard_layout:
             | Database["public"]["Enums"]["dashboard_layout"]
@@ -189,12 +193,15 @@ export type Database = {
           in_app_notifications: boolean | null
           industry_benchmarks: Json | null
           integrations: Json | null
+          job_title: string | null
           kpi_thresholds: Json | null
           language: string | null
           phone_number: string | null
           sms_notifications: boolean | null
+          social_links: Json | null
           target_kpis: Json | null
           theme: Database["public"]["Enums"]["theme_preference"] | null
+          timezone: string | null
           two_factor_enabled: boolean | null
           updated_at: string
           user_id: string
@@ -211,6 +218,10 @@ export type Database = {
           audit_schedule_day?: number | null
           audit_schedule_time?: string | null
           avatar_url?: string | null
+          bio?: string | null
+          city?: string | null
+          company_website?: string | null
+          country?: string | null
           created_at?: string
           dashboard_layout?:
             | Database["public"]["Enums"]["dashboard_layout"]
@@ -225,12 +236,15 @@ export type Database = {
           in_app_notifications?: boolean | null
           industry_benchmarks?: Json | null
           integrations?: Json | null
+          job_title?: string | null
           kpi_thresholds?: Json | null
           language?: string | null
           phone_number?: string | null
           sms_notifications?: boolean | null
+          social_links?: Json | null
           target_kpis?: Json | null
           theme?: Database["public"]["Enums"]["theme_preference"] | null
+          timezone?: string | null
           two_factor_enabled?: boolean | null
           updated_at?: string
           user_id: string
@@ -247,6 +261,10 @@ export type Database = {
           audit_schedule_day?: number | null
           audit_schedule_time?: string | null
           avatar_url?: string | null
+          bio?: string | null
+          city?: string | null
+          company_website?: string | null
+          country?: string | null
           created_at?: string
           dashboard_layout?:
             | Database["public"]["Enums"]["dashboard_layout"]
@@ -261,12 +279,15 @@ export type Database = {
           in_app_notifications?: boolean | null
           industry_benchmarks?: Json | null
           integrations?: Json | null
+          job_title?: string | null
           kpi_thresholds?: Json | null
           language?: string | null
           phone_number?: string | null
           sms_notifications?: boolean | null
+          social_links?: Json | null
           target_kpis?: Json | null
           theme?: Database["public"]["Enums"]["theme_preference"] | null
+          timezone?: string | null
           two_factor_enabled?: boolean | null
           updated_at?: string
           user_id?: string

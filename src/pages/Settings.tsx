@@ -28,18 +28,19 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Save } from "lucide-react";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { Switch } from "@/components/ui/switch";
 
 const formSchema = z.object({
   // Profile Settings
-  full_name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email address"),
-  company_name: z.string().optional(),
-  company_website: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
-  job_title: z.string().optional(),
-  phone_number: z.string().optional(),
-  bio: z.string().max(500, "Bio must be less than 500 characters").optional(),
-  city: z.string().optional(),
-  country: z.string().optional(),
+  full_name: z.string().min(2, "Name must be at least 2 characters").nullable(),
+  email: z.string().email("Please enter a valid email address").nullable(),
+  company_name: z.string().optional().nullable(),
+  company_website: z.string().url("Please enter a valid URL").optional().nullable().or(z.literal("")),
+  job_title: z.string().optional().nullable(),
+  phone_number: z.string().optional().nullable(),
+  bio: z.string().max(500, "Bio must be less than 500 characters").optional().nullable(),
+  city: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
   timezone: z.string(),
   social_links: z.object({
     linkedin: z.string().url("Please enter a valid LinkedIn URL").optional().or(z.literal("")),
@@ -354,7 +355,16 @@ export default function Settings() {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {Intl.supportedValuesOf('timeZone').map((tz) => (
+                                    {[
+                                      'UTC',
+                                      'America/New_York',
+                                      'America/Los_Angeles',
+                                      'Europe/London',
+                                      'Europe/Paris',
+                                      'Asia/Tokyo',
+                                      'Australia/Sydney',
+                                      // Add more common timezones as needed
+                                    ].map((tz) => (
                                       <SelectItem key={tz} value={tz}>
                                         {tz}
                                       </SelectItem>
