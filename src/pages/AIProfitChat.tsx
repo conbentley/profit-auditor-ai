@@ -38,7 +38,14 @@ function isChatMessage(message: any): message is ChatMessage {
 // Converts raw JSON messages to typed ChatMessage array
 function parseMessages(messages: Json): ChatMessage[] {
   if (!Array.isArray(messages)) return [];
-  return messages.filter(isChatMessage);
+  return messages.filter((msg): msg is ChatMessage => {
+    if (typeof msg !== 'object' || msg === null) return false;
+    const typedMsg = msg as Record<string, unknown>;
+    return (
+      (typedMsg.role === 'user' || typedMsg.role === 'assistant') &&
+      typeof typedMsg.content === 'string'
+    );
+  });
 }
 
 export default function AIProfitChat() {
