@@ -6,6 +6,21 @@ import { toast } from "sonner";
 export interface UserSettings {
   id: string;
   user_id: string;
+  full_name: string;
+  email: string;
+  company_name: string | null;
+  company_website: string | null;
+  job_title: string | null;
+  phone_number: string | null;
+  bio: string | null;
+  city: string | null;
+  country: string | null;
+  timezone: string;
+  social_links: {
+    linkedin?: string;
+    twitter?: string;
+    other?: string;
+  };
   avatar_url: string | null;
   integrations: Record<string, any>;
   data_refresh_interval: string;
@@ -17,7 +32,6 @@ export interface UserSettings {
   email_frequency: 'instant' | 'daily' | 'weekly';
   in_app_notifications: boolean;
   sms_notifications: boolean;
-  phone_number: string | null;
   industry_benchmarks: Record<string, any>;
   target_kpis: Record<string, number>;
   ai_explanation_detail: 'basic' | 'intermediate' | 'advanced';
@@ -40,8 +54,10 @@ const defaultSettings: Partial<UserSettings> = {
   dashboard_layout: 'grid',
   theme: 'system',
   language: 'en',
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   two_factor_enabled: false,
   data_sharing_enabled: false,
+  social_links: {},
   integrations: {},
   kpi_thresholds: {},
   industry_benchmarks: {},

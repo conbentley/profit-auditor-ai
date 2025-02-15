@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -32,9 +32,20 @@ import { useUserSettings } from "@/hooks/useUserSettings";
 const formSchema = z.object({
   // Profile Settings
   full_name: z.string().min(2, "Name must be at least 2 characters"),
-  company_name: z.string().optional(),
   email: z.string().email("Please enter a valid email address"),
+  company_name: z.string().optional(),
+  company_website: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
+  job_title: z.string().optional(),
   phone_number: z.string().optional(),
+  bio: z.string().max(500, "Bio must be less than 500 characters").optional(),
+  city: z.string().optional(),
+  country: z.string().optional(),
+  timezone: z.string(),
+  social_links: z.object({
+    linkedin: z.string().url("Please enter a valid LinkedIn URL").optional().or(z.literal("")),
+    twitter: z.string().url("Please enter a valid Twitter URL").optional().or(z.literal("")),
+    other: z.string().url("Please enter a valid URL").optional().or(z.literal(""))
+  }),
   
   // Financial Integration Settings
   data_refresh_interval: z.string(),
@@ -49,7 +60,6 @@ const formSchema = z.object({
   email_frequency: z.enum(['instant', 'daily', 'weekly']),
   in_app_notifications: z.boolean(),
   sms_notifications: z.boolean(),
-  phone_number: z.string().optional(),
   
   // Benchmark Settings
   ai_explanation_detail: z.enum(['basic', 'intermediate', 'advanced']),
@@ -77,6 +87,12 @@ export default function Settings() {
       dashboard_layout: 'grid',
       theme: 'system',
       language: 'en',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      social_links: {
+        linkedin: '',
+        twitter: '',
+        other: ''
+      }
     },
   });
 
@@ -139,80 +155,282 @@ export default function Settings() {
                 <TabsContent value="profile">
                   <Card className="p-8">
                     <div className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="full_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Full Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter your full name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div>
+                        <h3 className="text-lg font-medium mb-4">Personal Information</h3>
+                        <div className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="full_name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Full Name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter your full name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email Address</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="email" 
-                                placeholder="Enter your email address" 
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                          <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email Address</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="email" 
+                                    placeholder="Enter your email address" 
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                      <FormField
-                        control={form.control}
-                        name="company_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Company Name</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="Enter your company name (optional)" 
-                                {...field} 
-                                value={field.value || ''}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              The name of your company or organization
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                          <FormField
+                            control={form.control}
+                            name="phone_number"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Contact Number</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="tel" 
+                                    placeholder="Enter your contact number (optional)" 
+                                    {...field}
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Your preferred contact number
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                      <FormField
-                        control={form.control}
-                        name="phone_number"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Contact Number</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="tel" 
-                                placeholder="Enter your contact number (optional)" 
-                                {...field}
-                                value={field.value || ''}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Your preferred contact number
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                          <FormField
+                            control={form.control}
+                            name="bio"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Bio</FormLabel>
+                                <FormControl>
+                                  <Textarea 
+                                    placeholder="Tell us about yourself or your company"
+                                    className="resize-none"
+                                    {...field}
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  A brief description that helps us understand you better
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <h3 className="text-lg font-medium mb-4">Professional Information</h3>
+                        <div className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="job_title"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Job Title</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Enter your job title"
+                                    {...field}
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="company_name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Company Name</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Enter your company name" 
+                                    {...field} 
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="company_website"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Company Website</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="url"
+                                    placeholder="https://your-company.com"
+                                    {...field}
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <h3 className="text-lg font-medium mb-4">Location & Timezone</h3>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="city"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>City</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="Your city"
+                                      {...field}
+                                      value={field.value || ''}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name="country"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Country</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="Your country"
+                                      {...field}
+                                      value={field.value || ''}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name="timezone"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Timezone</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select your timezone" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {Intl.supportedValuesOf('timeZone').map((tz) => (
+                                      <SelectItem key={tz} value={tz}>
+                                        {tz}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <h3 className="text-lg font-medium mb-4">Social Links</h3>
+                        <div className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="social_links.linkedin"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>LinkedIn Profile</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="url"
+                                    placeholder="https://linkedin.com/in/your-profile"
+                                    {...field}
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="social_links.twitter"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Twitter Profile</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="url"
+                                    placeholder="https://twitter.com/your-handle"
+                                    {...field}
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="social_links.other"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Other Social Profile</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="url"
+                                    placeholder="https://other-social-network.com/profile"
+                                    {...field}
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </Card>
                 </TabsContent>
