@@ -42,11 +42,6 @@ const formSchema = z.object({
   city: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
   timezone: z.string(),
-  social_links: z.object({
-    linkedin: z.string().url("Please enter a valid LinkedIn URL").optional().or(z.literal("")),
-    twitter: z.string().url("Please enter a valid Twitter URL").optional().or(z.literal("")),
-    other: z.string().url("Please enter a valid URL").optional().or(z.literal(""))
-  }),
   
   // Financial Integration Settings
   data_refresh_interval: z.string(),
@@ -89,11 +84,6 @@ export default function Settings() {
       theme: 'system',
       language: 'en',
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      social_links: {
-        linkedin: '',
-        twitter: '',
-        other: ''
-      }
     },
   });
 
@@ -371,70 +361,6 @@ export default function Settings() {
                                     ))}
                                   </SelectContent>
                                 </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      <div>
-                        <h3 className="text-lg font-medium mb-4">Social Links</h3>
-                        <div className="space-y-4">
-                          <FormField
-                            control={form.control}
-                            name="social_links.linkedin"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>LinkedIn Profile</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="url"
-                                    placeholder="https://linkedin.com/in/your-profile"
-                                    {...field}
-                                    value={field.value || ''}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name="social_links.twitter"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Twitter Profile</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="url"
-                                    placeholder="https://twitter.com/your-handle"
-                                    {...field}
-                                    value={field.value || ''}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name="social_links.other"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Other Social Profile</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="url"
-                                    placeholder="https://other-social-network.com/profile"
-                                    {...field}
-                                    value={field.value || ''}
-                                  />
-                                </FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}

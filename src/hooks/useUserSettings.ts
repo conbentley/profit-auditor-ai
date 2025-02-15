@@ -16,11 +16,6 @@ export interface UserSettings {
   city: string | null;
   country: string | null;
   timezone: string;
-  social_links: {
-    linkedin?: string;
-    twitter?: string;
-    other?: string;
-  };
   avatar_url: string | null;
   integrations: Record<string, any>;
   data_refresh_interval: string;
@@ -57,7 +52,6 @@ const defaultSettings: Partial<UserSettings> = {
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   two_factor_enabled: false,
   data_sharing_enabled: false,
-  social_links: {},
   integrations: {},
   kpi_thresholds: {},
   industry_benchmarks: {},
@@ -95,10 +89,10 @@ export function useUserSettings() {
           .single();
 
         if (createError) throw createError;
-        return newSettings as UserSettings;
+        return newSettings as unknown as UserSettings;
       }
 
-      return data as UserSettings;
+      return data as unknown as UserSettings;
     }
   });
 
