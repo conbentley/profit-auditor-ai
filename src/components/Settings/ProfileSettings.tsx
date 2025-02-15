@@ -3,20 +3,53 @@ import { useUserSettings } from "@/hooks/useUserSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const ProfileSettings = () => {
   const { settings, updateSettings, isUpdating } = useUserSettings();
+  const [profile, setProfile] = useState<{ full_name: string | null }>({ full_name: null });
   const [formData, setFormData] = useState({
-    full_name: '',  // This will come from profiles table
-    phone_number: settings?.phone_number || '',
-    job_title: settings?.job_title || '',
-    company_website: settings?.company_website || '',
-    bio: settings?.bio || '',
-    city: settings?.city || '',
-    country: settings?.country || '',
+    phone_number: '',
+    job_title: '',
+    company_website: '',
+    bio: '',
+    city: '',
+    country: '',
   });
+
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        if (data) {
+          setProfile(data);
+        }
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  // Initialize form data with settings when they're loaded
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        phone_number: settings.phone_number || '',
+        job_title: settings.job_title || '',
+        company_website: settings.company_website || '',
+        bio: settings.bio || '',
+        city: settings.city || '',
+        country: settings.country || '',
+      });
+    }
+  }, [settings]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -50,7 +83,7 @@ const ProfileSettings = () => {
           <Input
             id="full_name"
             name="full_name"
-            value={formData.full_name}
+            value={profile.full_name || ''}
             onChange={handleChange}
             placeholder="John Doe"
             disabled // Disabled because it should be managed in profiles table
