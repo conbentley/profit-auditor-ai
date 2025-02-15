@@ -12,23 +12,42 @@ import { useUserSettings } from "@/hooks/useUserSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
 
 const Header = () => {
   const { settings } = useUserSettings();
   const navigate = useNavigate();
+  const [userProfile, setUserProfile] = useState<{ full_name: string | null, email: string | null }>({ full_name: null, email: null });
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', user.id)
+          .single();
+        if (data) {
+          setUserProfile(data);
+        }
+      }
+    };
+    fetchUserProfile();
+  }, []);
 
   // Get initials from full name or email
   const getInitials = () => {
-    if (settings?.full_name) {
-      return settings.full_name
+    if (userProfile.full_name) {
+      return userProfile.full_name
         .split(' ')
         .map(name => name[0])
         .join('')
         .toUpperCase()
         .slice(0, 2);
     }
-    if (settings?.email) {
-      return settings.email.substring(0, 2).toUpperCase();
+    if (userProfile.email) {
+      return userProfile.email.substring(0, 2).toUpperCase();
     }
     return 'JD';
   };
@@ -62,8 +81,8 @@ const Header = () => {
             <DropdownMenuContent className="w-56" align="end">
               <div className="flex items-center gap-2 p-2">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{settings?.full_name || 'User'}</p>
-                  <p className="text-xs text-gray-500">{settings?.email}</p>
+                  <p className="text-sm font-medium">{userProfile.full_name || 'User'}</p>
+                  <p className="text-xs text-gray-500">{userProfile.email}</p>
                 </div>
               </div>
               <DropdownMenuSeparator />
