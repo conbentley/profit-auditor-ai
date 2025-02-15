@@ -12,28 +12,31 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+interface FinancialMetrics {
+  revenue: number;
+  expenses: number;
+  profit_margin: number;
+  cost_breakdown: Record<string, number>;
+}
+
+interface AuditFinding {
+  category: 'subscription' | 'pricing' | 'tax' | 'marketing' | 'inventory';
+  severity: 'critical' | 'medium' | 'low';
+  title: string;
+  description: string;
+  potential_savings: number;
+  resolution_steps: Record<string, any>;
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: corsHeaders,
-      status: 204,
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Validate OpenAI API key
-    if (!openAIApiKey) {
-      throw new Error("OpenAI API key is not configured");
-    }
-
-    const reqBody = await req.text();
-    const { user_id, month, year } = JSON.parse(reqBody);
-
-    console.log(`Generating audit for user ${user_id} for ${month}/${year}`);
+    const { user_id, month, year } = await req.json();
 
     // Fetch financial data from transactions
     const startDate = new Date(year, month - 1, 1);
@@ -46,27 +49,7 @@ serve(async (req) => {
       .gte('transaction_date', startDate.toISOString())
       .lte('transaction_date', endDate.toISOString());
 
-    if (transactionsError) {
-      console.error('Transaction fetch error:', transactionsError);
-      throw transactionsError;
-    }
-
-    if (!transactions || transactions.length === 0) {
-      console.log('No transactions found for the period');
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "No financial transactions found for the selected period"
-        }),
-        {
-          status: 404,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-    }
+    if (transactionsError) throw transactionsError;
 
     // Calculate financial metrics
     const revenue = transactions
@@ -88,17 +71,28 @@ serve(async (req) => {
         return acc;
       }, {} as Record<string, number>);
 
-    const financialData = {
+    const financialData: FinancialMetrics = {
       revenue,
       expenses,
       profit_margin,
       cost_breakdown
     };
 
-    console.log('Calculated financial metrics:', financialData);
+    // Fetch competitor prices for comparison
+    const { data: competitorPrices } = await supabase
+      .from('competitor_prices')
+      .select('*')
+      .eq('user_id', user_id);
 
-    // Generate AI analysis
-    console.log('Calling OpenAI API...');
+    // Fetch marketing performance data
+    const { data: marketingData } = await supabase
+      .from('marketing_performance')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('date', startDate.toISOString())
+      .lte('date', endDate.toISOString());
+
+    // Generate AI analysis with enhanced context
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -106,32 +100,62 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Using the correct model as per instructions
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: 'You are a financial analyst AI. Analyze the financial data and provide insights in JSON format with the following structure: { "summary": string, "kpis": Array<{ metric: string, value: string, trend: string }>, "recommendations": Array<{ title: string, description: string, impact: string, difficulty: string }> }'
+            content: `You are an expert financial analyst AI that identifies profit leaks and provides actionable recommendations. 
+            Focus on these key areas:
+            1. Subscription optimization
+            2. Pricing strategy vs competitors
+            3. Tax efficiency
+            4. Marketing ROI
+            5. Inventory management
+            
+            For each finding, provide specific, quantified savings estimates and clear step-by-step resolution steps.`
           },
           {
             role: 'user',
-            content: JSON.stringify(financialData)
+            content: `Analyze these financial metrics and provide detailed insights:
+              Financial Data: ${JSON.stringify(financialData)}
+              Competitor Prices: ${JSON.stringify(competitorPrices)}
+              Marketing Performance: ${JSON.stringify(marketingData)}
+              
+              Provide a comprehensive analysis including:
+              1. Key performance indicators and their trends
+              2. Specific profit leaks identified
+              3. Prioritized recommendations with estimated savings
+              4. Industry benchmarking insights
+              
+              Format the response as JSON with these keys:
+              {
+                summary: string,
+                kpis: [{ metric: string, value: string, trend: string }],
+                findings: [{ 
+                  category: string,
+                  severity: string,
+                  title: string,
+                  description: string,
+                  potential_savings: number,
+                  resolution_steps: object
+                }],
+                recommendations: [{ 
+                  title: string,
+                  description: string,
+                  impact: string,
+                  difficulty: string,
+                  estimated_savings: number
+                }]
+              }`
           }
         ],
-        response_format: { type: "json_object" }
       }),
     });
 
-    if (!response.ok) {
-      console.error('OpenAI API error:', response.status, await response.text());
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
     const aiResponse = await response.json();
-    console.log('Received OpenAI response');
     const analysis = JSON.parse(aiResponse.choices[0].message.content);
 
     // Store audit results
-    console.log('Storing audit results...');
     const { data: audit, error: insertError } = await supabase
       .from('financial_audits')
       .insert({
@@ -150,38 +174,41 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (insertError) {
-      console.error('Insert error:', insertError);
-      throw insertError;
+    if (insertError) throw insertError;
+
+    // Store individual findings
+    if (analysis.findings) {
+      const findings = analysis.findings.map((finding: AuditFinding) => ({
+        user_id,
+        audit_id: audit.id,
+        category: finding.category,
+        severity: finding.severity,
+        title: finding.title,
+        description: finding.description,
+        potential_savings: finding.potential_savings,
+        resolution_steps: finding.resolution_steps,
+        status: 'pending'
+      }));
+
+      const { error: findingsError } = await supabase
+        .from('audit_findings')
+        .insert(findings);
+
+      if (findingsError) throw findingsError;
     }
 
-    console.log('Audit generation completed successfully');
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        audit: audit 
-      }),
-      { 
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
+      JSON.stringify(analysis),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error generating audit:', error);
     return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error.message 
-      }),
+      JSON.stringify({ error: error.message }),
       { 
         status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
