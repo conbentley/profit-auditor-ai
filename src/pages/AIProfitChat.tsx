@@ -79,12 +79,18 @@ export default function AIProfitChat() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Convert messages to a format that matches the Json type
+      const jsonMessages = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      })) as unknown as Json;
+
       if (chatHistory) {
         // Update existing chat
         const { error } = await supabase
           .from('chat_history')
           .update({ 
-            messages: messages as Json
+            messages: jsonMessages
           })
           .eq('id', chatHistory.id);
 
@@ -95,7 +101,7 @@ export default function AIProfitChat() {
           .from('chat_history')
           .insert({
             user_id: user.id,
-            messages: messages as Json
+            messages: jsonMessages
           });
 
         if (error) throw error;
