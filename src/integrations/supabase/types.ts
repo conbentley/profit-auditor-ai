@@ -135,10 +135,13 @@ export type Database = {
           id: string
           is_active: boolean | null
           last_sync_at: string | null
+          last_sync_status: Json | null
           metadata: Json | null
+          next_sync_at: string | null
           platform: Database["public"]["Enums"]["ecommerce_platform"]
           store_name: string | null
           store_url: string
+          sync_frequency: unknown | null
           updated_at: string
           user_id: string
         }
@@ -148,10 +151,13 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
+          last_sync_status?: Json | null
           metadata?: Json | null
+          next_sync_at?: string | null
           platform: Database["public"]["Enums"]["ecommerce_platform"]
           store_name?: string | null
           store_url: string
+          sync_frequency?: unknown | null
           updated_at?: string
           user_id: string
         }
@@ -161,14 +167,70 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
+          last_sync_status?: Json | null
           metadata?: Json | null
+          next_sync_at?: string | null
           platform?: Database["public"]["Enums"]["ecommerce_platform"]
           store_name?: string | null
           store_url?: string
+          sync_frequency?: unknown | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      ecommerce_metrics: {
+        Row: {
+          average_order_value: number
+          created_at: string
+          customer_metrics: Json | null
+          daily_revenue: number
+          id: string
+          integration_id: string
+          metric_date: string
+          products_sold: number
+          top_products: Json | null
+          total_orders: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          average_order_value?: number
+          created_at?: string
+          customer_metrics?: Json | null
+          daily_revenue?: number
+          id?: string
+          integration_id: string
+          metric_date: string
+          products_sold?: number
+          top_products?: Json | null
+          total_orders?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          average_order_value?: number
+          created_at?: string
+          customer_metrics?: Json | null
+          daily_revenue?: number
+          id?: string
+          integration_id?: string
+          metric_date?: string
+          products_sold?: number
+          top_products?: Json | null
+          total_orders?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ecommerce_metrics_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "ecommerce_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ecommerce_products: {
         Row: {
