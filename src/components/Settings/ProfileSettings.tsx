@@ -21,7 +21,12 @@ const ProfileSettings = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear city if country changes
+    if (name === 'country') {
+      setFormData(prev => ({ ...prev, [name]: value, city: '' }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,24 +94,27 @@ const ProfileSettings = () => {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="city" className="text-sm font-medium">City</label>
-          <Input
-            id="city"
-            name="city"
-            value={formData.city}
-            onChange={handleChange}
-            placeholder="San Francisco"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="country" className="text-sm font-medium">Country</label>
+          <label htmlFor="country" className="text-sm font-medium">Country <span className="text-red-500">*</span></label>
           <Input
             id="country"
             name="country"
             value={formData.country}
             onChange={handleChange}
-            placeholder="United States"
+            placeholder="Enter your country"
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="city" className="text-sm font-medium">City <span className="text-red-500">*</span></label>
+          <Input
+            id="city"
+            name="city"
+            value={formData.city}
+            onChange={handleChange}
+            placeholder={formData.country ? "Enter your city" : "Please select a country first"}
+            disabled={!formData.country}
+            required
           />
         </div>
       </div>
