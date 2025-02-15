@@ -45,11 +45,11 @@ const Index = () => {
 
       const today = new Date();
       const { data, error } = await supabase.functions.invoke('generate-audit', {
-        body: {
+        body: JSON.stringify({
           user_id: user.id,
           month: today.getMonth() + 1,
           year: today.getFullYear()
-        }
+        })
       });
 
       if (error) {

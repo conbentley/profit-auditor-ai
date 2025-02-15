@@ -12,31 +12,21 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-interface FinancialMetrics {
-  revenue: number;
-  expenses: number;
-  profit_margin: number;
-  cost_breakdown: Record<string, number>;
-}
-
-interface AuditFinding {
-  category: 'subscription' | 'pricing' | 'tax' | 'marketing' | 'inventory';
-  severity: 'critical' | 'medium' | 'low';
-  title: string;
-  description: string;
-  potential_savings: number;
-  resolution_steps: Record<string, any>;
-}
-
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      headers: corsHeaders,
+      status: 204,
+    });
   }
 
   try {
-    const { user_id, month, year } = await req.json();
+    const reqBody = await req.text();
+    const { user_id, month, year } = JSON.parse(reqBody);
 
     // Fetch financial data from transactions
     const startDate = new Date(year, month - 1, 1);
@@ -53,25 +43,25 @@ serve(async (req) => {
 
     // Calculate financial metrics
     const revenue = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+      ?.filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
 
     const expenses = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+      ?.filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
 
     const profit_margin = revenue > 0 ? ((revenue - expenses) / revenue) * 100 : 0;
 
     // Calculate cost breakdown by category
     const cost_breakdown = transactions
-      .filter(t => t.type === 'expense')
+      ?.filter(t => t.type === 'expense')
       .reduce((acc, t) => {
         const category = t.category || 'Uncategorized';
         acc[category] = (acc[category] || 0) + Number(t.amount);
         return acc;
-      }, {} as Record<string, number>);
+      }, {} as Record<string, number>) ?? {};
 
-    const financialData: FinancialMetrics = {
+    const financialData = {
       revenue,
       expenses,
       profit_margin,
@@ -90,7 +80,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a financial analyst AI. Analyze the financial data and provide insights in JSON format.'
+            content: 'You are a financial analyst AI. Analyze the financial data and provide insights in JSON format with the following structure: { "summary": string, "kpis": Array<{ metric: string, value: string, trend: string }>, "recommendations": Array<{ title: string, description: string, impact: string, difficulty: string }> }'
           },
           {
             role: 'user',
@@ -100,6 +90,10 @@ serve(async (req) => {
         response_format: { type: "json_object" }
       }),
     });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
 
     const aiResponse = await response.json();
     const analysis = JSON.parse(aiResponse.choices[0].message.content);
@@ -125,34 +119,16 @@ serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    // Store individual findings
-    if (analysis.findings) {
-      const findings = analysis.findings.map((finding: AuditFinding) => ({
-        user_id,
-        audit_id: audit.id,
-        category: finding.category,
-        severity: finding.severity,
-        title: finding.title,
-        description: finding.description,
-        potential_savings: finding.potential_savings,
-        resolution_steps: finding.resolution_steps,
-        status: 'pending'
-      }));
-
-      const { error: findingsError } = await supabase
-        .from('audit_findings')
-        .insert(findings);
-
-      if (findingsError) throw findingsError;
-    }
-
     return new Response(
-      JSON.stringify({ success: true, audit: audit }),
+      JSON.stringify({ 
+        success: true, 
+        audit: audit 
+      }),
       { 
-        headers: { 
-          ...corsHeaders, 
+        headers: {
+          ...corsHeaders,
           'Content-Type': 'application/json'
-        } 
+        }
       }
     );
 
@@ -160,13 +136,13 @@ serve(async (req) => {
     console.error('Error generating audit:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        success: false 
+        success: false,
+        error: error.message 
       }),
       { 
         status: 500,
-        headers: { 
-          ...corsHeaders, 
+        headers: {
+          ...corsHeaders,
           'Content-Type': 'application/json'
         }
       }
