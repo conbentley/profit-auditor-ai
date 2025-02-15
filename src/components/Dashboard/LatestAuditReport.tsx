@@ -276,7 +276,7 @@ ${recommendationsCSV}
               className="gap-2"
             >
               <MessageSquare className="h-4 w-4" />
-              Chat to AI
+              AI Profit Chat
             </Button>
           </DialogFooter>
         </DialogContent>
