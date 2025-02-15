@@ -139,7 +139,8 @@ const AuditHistory = () => {
         .from('financial_audits')
         .select('*, findings:audit_findings(*)')
         .eq('user_id', user.id)
-        .order('audit_date', { ascending: false });
+        .order('audit_date', { ascending: false }) // Sort by audit_date in descending order
+        .order('created_at', { ascending: false }); // Secondary sort by created_at
 
       if (auditError) throw auditError;
       
