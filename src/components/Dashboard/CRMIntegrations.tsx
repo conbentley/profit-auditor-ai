@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,12 +19,62 @@ type CRMPlatform = 'salesforce' | 'hubspot' | 'zoho' | 'dynamics365' | 'pipedriv
 
 const PLATFORMS_REQUIRING_URL: CRMPlatform[] = ['salesforce', 'zoho', 'dynamics365'];
 
+async function validateCredentials(
+  platform: CRMPlatform, 
+  credentials: { 
+    api_key: string; 
+    api_secret: string; 
+    instance_url?: string;
+  },
+  isTestMode: boolean
+): Promise<boolean> {
+  if (isTestMode) {
+    // In test mode, simulate API validation with a delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  }
+
+  try {
+    // In production, make actual API calls to validate credentials
+    switch (platform) {
+      case 'salesforce':
+        // TODO: Implement Salesforce validation
+        console.log('Validating Salesforce credentials...');
+        return true;
+
+      case 'hubspot':
+        const hubspotRes = await fetch('https://api.hubapi.com/oauth/v1/access-tokens/verify', {
+          headers: { Authorization: `Bearer ${credentials.api_key}` }
+        });
+        return hubspotRes.ok;
+
+      case 'zoho':
+        const zohoRes = await fetch(`${credentials.instance_url}/crm/v2/users`, {
+          headers: { 
+            Authorization: `Zoho-oauthtoken ${credentials.api_key}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        return zohoRes.ok;
+
+      // Add other CRM validation logic here
+      default:
+        console.warn(`No validation implemented for ${platform}`);
+        return true;
+    }
+  } catch (error) {
+    console.error(`Error validating ${platform} credentials:`, error);
+    return false;
+  }
+}
+
 export default function CRMIntegrations() {
   const [isLoading, setIsLoading] = useState(false);
   const [platform, setPlatform] = useState<CRMPlatform | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
   const [instanceUrl, setInstanceUrl] = useState('');
+  const [isTestMode, setIsTestMode] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,20 +95,28 @@ export default function CRMIntegrations() {
         api_secret: apiSecret,
       };
 
-      // Only include instance_url if the platform requires it
       if (PLATFORMS_REQUIRING_URL.includes(platform)) {
         credentials.instance_url = instanceUrl;
+      }
+
+      // Validate credentials before saving
+      const isValid = await validateCredentials(platform, credentials, isTestMode);
+      
+      if (!isValid) {
+        toast.error("Invalid credentials. Please check your API key and secret.");
+        return;
       }
 
       const { error } = await supabase.from('crm_integrations').insert({
         platform,
         credentials,
         user_id: user.id,
+        metadata: { is_test_mode: isTestMode }
       });
 
       if (error) throw error;
 
-      toast.success(`Successfully connected to ${platform}`);
+      toast.success(`Successfully connected to ${platform}${isTestMode ? ' (Test Mode)' : ''}`);
       setPlatform(null);
       setApiKey('');
       setApiSecret('');
@@ -107,6 +166,15 @@ export default function CRMIntegrations() {
           </Select>
         </div>
 
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="test-mode"
+            checked={isTestMode}
+            onCheckedChange={setIsTestMode}
+          />
+          <Label htmlFor="test-mode">Test Mode</Label>
+        </div>
+
         {platform && PLATFORMS_REQUIRING_URL.includes(platform) && (
           <div className="space-y-2">
             <Label htmlFor="instanceUrl">Instance URL</Label>
@@ -128,7 +196,7 @@ export default function CRMIntegrations() {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter API key"
+            placeholder={isTestMode ? "test_api_key" : "Enter API key"}
             required
           />
         </div>
@@ -140,14 +208,20 @@ export default function CRMIntegrations() {
             type="password"
             value={apiSecret}
             onChange={(e) => setApiSecret(e.target.value)}
-            placeholder="Enter API secret"
+            placeholder={isTestMode ? "test_api_secret" : "Enter API secret"}
             required
           />
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : "Connect Integration"}
+          {isLoading ? "Connecting..." : `Connect ${isTestMode ? '(Test Mode)' : ''}`}
         </Button>
+
+        {isTestMode && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Test mode enabled. No real API calls will be made.
+          </p>
+        )}
       </form>
     </Card>
   );
