@@ -9,7 +9,6 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
-  MessageSquare,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -18,7 +17,6 @@ const Sidebar = () => {
   const menuItems = [
     { icon: Home, label: "Dashboard", path: "/" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
-    { icon: MessageSquare, label: "AI Profit Chat", path: "/chat" },
     { icon: History, label: "Audit History", path: "/history" },
     { icon: Settings, label: "Settings", path: "/settings" },
     { icon: HelpCircle, label: "Support", path: "/support" },

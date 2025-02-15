@@ -9,345 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      audit_findings: {
-        Row: {
-          audit_id: string | null
-          category: string
-          created_at: string
-          description: string
-          id: string
-          metadata: Json | null
-          potential_savings: number | null
-          resolution_steps: Json | null
-          severity: string
-          status: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          audit_id?: string | null
-          category: string
-          created_at?: string
-          description: string
-          id?: string
-          metadata?: Json | null
-          potential_savings?: number | null
-          resolution_steps?: Json | null
-          severity: string
-          status?: string
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          audit_id?: string | null
-          category?: string
-          created_at?: string
-          description?: string
-          id?: string
-          metadata?: Json | null
-          potential_savings?: number | null
-          resolution_steps?: Json | null
-          severity?: string
-          status?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "audit_findings_audit_id_fkey"
-            columns: ["audit_id"]
-            isOneToOne: false
-            referencedRelation: "financial_audits"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      chat_history: {
-        Row: {
-          audit_id: string | null
-          created_at: string
-          id: string
-          messages: Json
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          audit_id?: string | null
-          created_at?: string
-          id?: string
-          messages?: Json
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          audit_id?: string | null
-          created_at?: string
-          id?: string
-          messages?: Json
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      competitor_prices: {
-        Row: {
-          competitor_name: string
-          currency: string
-          id: string
-          last_checked: string
-          metadata: Json | null
-          price: number
-          product_id: string
-          url: string | null
-          user_id: string
-        }
-        Insert: {
-          competitor_name: string
-          currency: string
-          id?: string
-          last_checked?: string
-          metadata?: Json | null
-          price: number
-          product_id: string
-          url?: string | null
-          user_id: string
-        }
-        Update: {
-          competitor_name?: string
-          currency?: string
-          id?: string
-          last_checked?: string
-          metadata?: Json | null
-          price?: number
-          product_id?: string
-          url?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      ecommerce_integrations: {
-        Row: {
-          created_at: string
-          credentials: Json
-          id: string
-          is_active: boolean | null
-          last_sync_at: string | null
-          last_sync_status: Json | null
-          metadata: Json | null
-          next_sync_at: string | null
-          platform: Database["public"]["Enums"]["ecommerce_platform"]
-          store_name: string | null
-          store_url: string
-          sync_frequency: unknown | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          credentials: Json
-          id?: string
-          is_active?: boolean | null
-          last_sync_at?: string | null
-          last_sync_status?: Json | null
-          metadata?: Json | null
-          next_sync_at?: string | null
-          platform: Database["public"]["Enums"]["ecommerce_platform"]
-          store_name?: string | null
-          store_url: string
-          sync_frequency?: unknown | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          credentials?: Json
-          id?: string
-          is_active?: boolean | null
-          last_sync_at?: string | null
-          last_sync_status?: Json | null
-          metadata?: Json | null
-          next_sync_at?: string | null
-          platform?: Database["public"]["Enums"]["ecommerce_platform"]
-          store_name?: string | null
-          store_url?: string
-          sync_frequency?: unknown | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      ecommerce_metrics: {
-        Row: {
-          average_order_value: number
-          created_at: string
-          customer_metrics: Json | null
-          daily_revenue: number
-          id: string
-          integration_id: string
-          metric_date: string
-          products_sold: number
-          top_products: Json | null
-          total_orders: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          average_order_value?: number
-          created_at?: string
-          customer_metrics?: Json | null
-          daily_revenue?: number
-          id?: string
-          integration_id: string
-          metric_date: string
-          products_sold?: number
-          top_products?: Json | null
-          total_orders?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          average_order_value?: number
-          created_at?: string
-          customer_metrics?: Json | null
-          daily_revenue?: number
-          id?: string
-          integration_id?: string
-          metric_date?: string
-          products_sold?: number
-          top_products?: Json | null
-          total_orders?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ecommerce_metrics_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "ecommerce_integrations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ecommerce_products: {
-        Row: {
-          cost: number | null
-          created_at: string
-          currency: string
-          id: string
-          integration_id: string
-          inventory_quantity: number | null
-          metadata: Json | null
-          name: string
-          platform_product_id: string
-          price: number
-          sku: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          cost?: number | null
-          created_at?: string
-          currency: string
-          id?: string
-          integration_id: string
-          inventory_quantity?: number | null
-          metadata?: Json | null
-          name: string
-          platform_product_id: string
-          price: number
-          sku?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          cost?: number | null
-          created_at?: string
-          currency?: string
-          id?: string
-          integration_id?: string
-          inventory_quantity?: number | null
-          metadata?: Json | null
-          name?: string
-          platform_product_id?: string
-          price?: number
-          sku?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ecommerce_products_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "ecommerce_integrations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ecommerce_sales: {
-        Row: {
-          created_at: string
-          currency: string
-          id: string
-          integration_id: string
-          metadata: Json | null
-          order_id: string
-          product_id: string
-          quantity: number
-          sale_date: string
-          total_price: number
-          unit_price: number
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          currency: string
-          id?: string
-          integration_id: string
-          metadata?: Json | null
-          order_id: string
-          product_id: string
-          quantity: number
-          sale_date: string
-          total_price: number
-          unit_price: number
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          currency?: string
-          id?: string
-          integration_id?: string
-          metadata?: Json | null
-          order_id?: string
-          product_id?: string
-          quantity?: number
-          sale_date?: string
-          total_price?: number
-          unit_price?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ecommerce_sales_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "ecommerce_integrations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ecommerce_sales_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "ecommerce_products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       financial_audits: {
         Row: {
           analysis_metadata: Json | null
@@ -355,7 +16,6 @@ export type Database = {
           created_at: string
           id: string
           kpis: Json
-          monthly_metrics: Json
           recommendations: Json
           summary: string
           user_id: string
@@ -366,7 +26,6 @@ export type Database = {
           created_at?: string
           id?: string
           kpis: Json
-          monthly_metrics?: Json
           recommendations: Json
           summary: string
           user_id: string
@@ -377,7 +36,6 @@ export type Database = {
           created_at?: string
           id?: string
           kpis?: Json
-          monthly_metrics?: Json
           recommendations?: Json
           summary?: string
           user_id?: string
@@ -386,53 +44,35 @@ export type Database = {
       }
       financial_integrations: {
         Row: {
-          api_version: string | null
-          connection_settings: Json | null
           created_at: string
           credentials: Json
-          documents: Json | null
           id: string
           is_active: boolean | null
           last_sync_at: string | null
-          last_sync_status: Json | null
           metadata: Json | null
-          next_sync_at: string | null
           provider: Database["public"]["Enums"]["accounting_provider"]
-          sync_frequency: unknown | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          api_version?: string | null
-          connection_settings?: Json | null
           created_at?: string
           credentials: Json
-          documents?: Json | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
-          last_sync_status?: Json | null
           metadata?: Json | null
-          next_sync_at?: string | null
           provider: Database["public"]["Enums"]["accounting_provider"]
-          sync_frequency?: unknown | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          api_version?: string | null
-          connection_settings?: Json | null
           created_at?: string
           credentials?: Json
-          documents?: Json | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
-          last_sync_status?: Json | null
           metadata?: Json | null
-          next_sync_at?: string | null
           provider?: Database["public"]["Enums"]["accounting_provider"]
-          sync_frequency?: unknown | null
           updated_at?: string
           user_id?: string
         }
@@ -491,51 +131,6 @@ export type Database = {
           },
         ]
       }
-      marketing_performance: {
-        Row: {
-          campaign_id: string | null
-          clicks: number | null
-          conversions: number | null
-          created_at: string
-          date: string
-          id: string
-          impressions: number | null
-          metadata: Json | null
-          platform: string
-          revenue: number | null
-          spend: number
-          user_id: string
-        }
-        Insert: {
-          campaign_id?: string | null
-          clicks?: number | null
-          conversions?: number | null
-          created_at?: string
-          date: string
-          id?: string
-          impressions?: number | null
-          metadata?: Json | null
-          platform: string
-          revenue?: number | null
-          spend: number
-          user_id: string
-        }
-        Update: {
-          campaign_id?: string | null
-          clicks?: number | null
-          conversions?: number | null
-          created_at?: string
-          date?: string
-          id?: string
-          impressions?: number | null
-          metadata?: Json | null
-          platform?: string
-          revenue?: number | null
-          spend?: number
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -569,211 +164,15 @@ export type Database = {
         }
         Relationships: []
       }
-      user_audit_logs: {
-        Row: {
-          created_at: string
-          event_type: Database["public"]["Enums"]["audit_event_type"]
-          id: string
-          ip_address: string | null
-          metadata: Json | null
-          user_agent: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          event_type: Database["public"]["Enums"]["audit_event_type"]
-          id?: string
-          ip_address?: string | null
-          metadata?: Json | null
-          user_agent?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          event_type?: Database["public"]["Enums"]["audit_event_type"]
-          id?: string
-          ip_address?: string | null
-          metadata?: Json | null
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_settings: {
-        Row: {
-          ai_explanation_detail:
-            | Database["public"]["Enums"]["explanation_detail"]
-            | null
-          api_keys: Json | null
-          api_usage_stats: Json | null
-          audit_frequency: Database["public"]["Enums"]["audit_frequency"] | null
-          audit_schedule_day: number | null
-          audit_schedule_time: string | null
-          avatar_url: string | null
-          bio: string | null
-          city: string | null
-          company_website: string | null
-          country: string | null
-          created_at: string
-          dashboard_layout:
-            | Database["public"]["Enums"]["dashboard_layout"]
-            | null
-          data_refresh_interval: unknown | null
-          data_sharing_enabled: boolean | null
-          email_frequency:
-            | Database["public"]["Enums"]["notification_frequency"]
-            | null
-          email_notifications: boolean | null
-          id: string
-          in_app_notifications: boolean | null
-          industry_benchmarks: Json | null
-          integrations: Json | null
-          job_title: string | null
-          kpi_thresholds: Json | null
-          language: string | null
-          phone_number: string | null
-          sms_notifications: boolean | null
-          social_links: Json | null
-          target_kpis: Json | null
-          theme: Database["public"]["Enums"]["theme_preference"] | null
-          timezone: string | null
-          two_factor_enabled: boolean | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          ai_explanation_detail?:
-            | Database["public"]["Enums"]["explanation_detail"]
-            | null
-          api_keys?: Json | null
-          api_usage_stats?: Json | null
-          audit_frequency?:
-            | Database["public"]["Enums"]["audit_frequency"]
-            | null
-          audit_schedule_day?: number | null
-          audit_schedule_time?: string | null
-          avatar_url?: string | null
-          bio?: string | null
-          city?: string | null
-          company_website?: string | null
-          country?: string | null
-          created_at?: string
-          dashboard_layout?:
-            | Database["public"]["Enums"]["dashboard_layout"]
-            | null
-          data_refresh_interval?: unknown | null
-          data_sharing_enabled?: boolean | null
-          email_frequency?:
-            | Database["public"]["Enums"]["notification_frequency"]
-            | null
-          email_notifications?: boolean | null
-          id?: string
-          in_app_notifications?: boolean | null
-          industry_benchmarks?: Json | null
-          integrations?: Json | null
-          job_title?: string | null
-          kpi_thresholds?: Json | null
-          language?: string | null
-          phone_number?: string | null
-          sms_notifications?: boolean | null
-          social_links?: Json | null
-          target_kpis?: Json | null
-          theme?: Database["public"]["Enums"]["theme_preference"] | null
-          timezone?: string | null
-          two_factor_enabled?: boolean | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          ai_explanation_detail?:
-            | Database["public"]["Enums"]["explanation_detail"]
-            | null
-          api_keys?: Json | null
-          api_usage_stats?: Json | null
-          audit_frequency?:
-            | Database["public"]["Enums"]["audit_frequency"]
-            | null
-          audit_schedule_day?: number | null
-          audit_schedule_time?: string | null
-          avatar_url?: string | null
-          bio?: string | null
-          city?: string | null
-          company_website?: string | null
-          country?: string | null
-          created_at?: string
-          dashboard_layout?:
-            | Database["public"]["Enums"]["dashboard_layout"]
-            | null
-          data_refresh_interval?: unknown | null
-          data_sharing_enabled?: boolean | null
-          email_frequency?:
-            | Database["public"]["Enums"]["notification_frequency"]
-            | null
-          email_notifications?: boolean | null
-          id?: string
-          in_app_notifications?: boolean | null
-          industry_benchmarks?: Json | null
-          integrations?: Json | null
-          job_title?: string | null
-          kpi_thresholds?: Json | null
-          language?: string | null
-          phone_number?: string | null
-          sms_notifications?: boolean | null
-          social_links?: Json | null
-          target_kpis?: Json | null
-          theme?: Database["public"]["Enums"]["theme_preference"] | null
-          timezone?: string | null
-          two_factor_enabled?: boolean | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      calculate_monthly_changes: {
-        Args: {
-          current_metrics: Json
-          previous_metrics: Json
-        }
-        Returns: Json
-      }
-      log_audit_event: {
-        Args: {
-          p_user_id: string
-          p_event_type: Database["public"]["Enums"]["audit_event_type"]
-          p_metadata?: Json
-          p_ip_address?: string
-          p_user_agent?: string
-        }
-        Returns: string
-      }
+      [_ in never]: never
     }
     Enums: {
       accounting_provider: "xero" | "quickbooks" | "sage"
-      audit_event_type:
-        | "mfa_enabled"
-        | "mfa_disabled"
-        | "login"
-        | "logout"
-        | "settings_updated"
-        | "data_exported"
-        | "password_changed"
-        | "email_changed"
-      audit_frequency: "on_demand" | "weekly" | "monthly"
-      dashboard_layout: "grid" | "list"
-      ecommerce_platform:
-        | "shopify"
-        | "woocommerce"
-        | "magento"
-        | "bigcommerce"
-        | "prestashop"
-      explanation_detail: "basic" | "intermediate" | "advanced"
-      notification_frequency: "instant" | "daily" | "weekly"
-      theme_preference: "light" | "dark" | "system"
       user_role: "admin" | "user"
     }
     CompositeTypes: {

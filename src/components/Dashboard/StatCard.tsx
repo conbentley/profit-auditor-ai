@@ -1,7 +1,6 @@
 
 import { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 
 interface StatCardProps {
   title: string;
@@ -10,7 +9,6 @@ interface StatCardProps {
   trendValue?: string;
   icon: LucideIcon;
   trendUp?: boolean;
-  isLoading?: boolean;
 }
 
 const StatCard = ({
@@ -20,25 +18,7 @@ const StatCard = ({
   trendValue,
   icon: Icon,
   trendUp,
-  isLoading = false,
 }: StatCardProps) => {
-  if (isLoading) {
-    return (
-      <Card className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-3 w-full">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-4 w-20" />
-          </div>
-          <div className="p-3 bg-primary/10 rounded-lg">
-            <Icon className="w-6 h-6 text-primary/30" />
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
   return (
     <Card className="p-6 hover:shadow-lg transition-shadow">
       <div className="flex items-start justify-between">

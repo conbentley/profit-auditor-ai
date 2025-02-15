@@ -5,26 +5,9 @@ import Sidebar from "@/components/Dashboard/Sidebar";
 import StatCard from "@/components/Dashboard/StatCard";
 import FinancialIntegrations from "@/components/Dashboard/FinancialIntegrations";
 import AuditReport from "@/components/Dashboard/AuditReport";
-import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
-import { formatCurrency, formatPercentage } from "@/lib/formatters";
+import { Card } from "@/components/ui/card";
 
 const Index = () => {
-  const { data: metricsData, isLoading } = useDashboardMetrics();
-
-  const metrics = metricsData?.metrics ?? {
-    revenue: 0,
-    profit_margin: 0,
-    expense_ratio: 0,
-    audit_alerts: 0
-  };
-
-  const changes = metricsData?.changes ?? {
-    revenue: 0,
-    profit_margin: 0,
-    expense_ratio: 0,
-    audit_alerts: 0
-  };
-
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -34,39 +17,35 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <StatCard
               title="Monthly Revenue"
-              value={formatCurrency(metrics.revenue)}
+              value="$45,231"
               trend="vs last month"
-              trendValue={`${changes.revenue > 0 ? '+' : ''}${formatPercentage(changes.revenue)}`}
+              trendValue="+12.5%"
               icon={DollarSign}
-              trendUp={changes.revenue >= 0}
-              isLoading={isLoading}
+              trendUp={true}
             />
             <StatCard
               title="Profit Margin"
-              value={formatPercentage(metrics.profit_margin)}
+              value="32.8%"
               trend="vs last month"
-              trendValue={`${changes.profit_margin > 0 ? '+' : ''}${formatPercentage(changes.profit_margin)}`}
+              trendValue="+2.1%"
               icon={TrendingUp}
-              trendUp={changes.profit_margin >= 0}
-              isLoading={isLoading}
+              trendUp={true}
             />
             <StatCard
               title="Expense Ratio"
-              value={formatPercentage(metrics.expense_ratio)}
-              trend="vs last month"
-              trendValue={`${changes.expense_ratio > 0 ? '+' : ''}${formatPercentage(changes.expense_ratio)}`}
+              value="24.3%"
+              trend="vs target"
+              trendValue="-0.8%"
               icon={PieChart}
-              trendUp={changes.expense_ratio < 0}
-              isLoading={isLoading}
+              trendUp={false}
             />
             <StatCard
               title="Audit Alerts"
-              value={metrics.audit_alerts.toString()}
-              trend="vs last month"
-              trendValue={`${changes.audit_alerts > 0 ? '+' : ''}${formatPercentage(changes.audit_alerts)}`}
+              value="3"
+              trend="open issues"
+              trendValue="Critical"
               icon={AlertCircle}
-              trendUp={changes.audit_alerts < 0}
-              isLoading={isLoading}
+              trendUp={false}
             />
           </div>
 
