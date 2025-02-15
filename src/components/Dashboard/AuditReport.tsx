@@ -1,12 +1,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { AlertTriangle, ChevronRight, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
 
 interface AuditFinding {
   id: string;
@@ -56,8 +56,6 @@ const formatCurrency = (amount: number) => {
 };
 
 const AuditReport = () => {
-  const navigate = useNavigate();
-
   const { data: latestAudit, isLoading } = useQuery({
     queryKey: ['latest-audit'],
     queryFn: async () => {
@@ -108,7 +106,7 @@ const AuditReport = () => {
       </CardHeader>
       <CardContent>
         {latestAudit ? (
-          <div className="space-y-4">
+          <Collapsible className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-3 bg-yellow-50 rounded-lg">
                 <div className="text-sm text-yellow-800">Pending Actions</div>
@@ -130,38 +128,43 @@ const AuditReport = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium">Recent Findings</h3>
-              {latestAudit.findings?.slice(0, 3).map((finding) => (
-                <div
-                  key={finding.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(finding.status)}
-                    <div>
-                      <div className="text-sm font-medium">{finding.title}</div>
-                      <Badge className={getSeverityColor(finding.severity)}>
-                        {finding.severity}
-                      </Badge>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full flex items-center justify-between">
+                View Full Report
+                <ChevronDown className="h-4 w-4 text-gray-500" />
+              </Button>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              <div className="space-y-3 pt-4">
+                <h3 className="text-sm font-medium">All Findings</h3>
+                {latestAudit.findings?.map((finding) => (
+                  <div
+                    key={finding.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      {getStatusIcon(finding.status)}
+                      <div>
+                        <div className="text-sm font-medium">{finding.title}</div>
+                        <div className="flex gap-2 mt-1">
+                          <Badge className={getSeverityColor(finding.severity)}>
+                            {finding.severity}
+                          </Badge>
+                          <Badge variant="outline">
+                            {finding.status.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-sm text-green-600 font-medium">
+                      {formatCurrency(finding.potential_savings)}
                     </div>
                   </div>
-                  <div className="text-sm text-green-600 font-medium">
-                    {formatCurrency(finding.potential_savings)}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full mt-4"
-              onClick={() => navigate('/history')}
-            >
-              View Full Report
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         ) : (
           <div className="text-center py-6">
             <p className="text-gray-500">No audit reports available yet.</p>
