@@ -53,7 +53,7 @@ export default function FinancialIntegrations() {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      return data as FinancialIntegration[];
+      return data as unknown as FinancialIntegration[];
     },
   });
 
