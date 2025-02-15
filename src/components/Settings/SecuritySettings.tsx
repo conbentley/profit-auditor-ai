@@ -10,15 +10,23 @@ import { toast } from "sonner";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertCircle, ShieldCheck, KeyRound } from "lucide-react";
-import { TOTPFactorPayload } from "@supabase/supabase-js";
+
+interface MFAData {
+  id: string;
+  totp: {
+    qr_code: string;
+    secret: string;
+  };
+}
 
 export default function SecuritySettings() {
   const { settings, updateSettings, isUpdating } = useUserSettings();
   const [isMfaEnabled, setIsMfaEnabled] = useState(settings?.two_factor_enabled ?? false);
   const [isExportingData, setIsExportingData] = useState(false);
   const [showMfaDialog, setShowMfaDialog] = useState(false);
-  const [mfaSecret, setMfaSecret] = useState<TOTPFactorPayload | null>(null);
+  const [mfaSecret, setMfaSecret] = useState<MFAData | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
+  const [challengeId, setChallengeId] = useState<string | null>(null);
 
   const handleMfaToggle = async () => {
     try {
@@ -31,19 +39,23 @@ export default function SecuritySettings() {
         
         if (enrollError) throw enrollError;
         
-        setMfaSecret(factorData);
+        setMfaSecret(factorData as unknown as MFAData);
         setShowMfaDialog(true);
       } else {
         // Disable MFA
-        const { error: unenrollError } = await supabase.auth.mfa.unenroll({
-          factorId: settings?.mfa_factor_id
-        });
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const totpFactor = factors.totp[0];
         
-        if (unenrollError) throw unenrollError;
+        if (totpFactor) {
+          const { error: unenrollError } = await supabase.auth.mfa.unenroll({
+            factorId: totpFactor.id
+          });
+          
+          if (unenrollError) throw unenrollError;
+        }
         
         await updateSettings({
-          two_factor_enabled: false,
-          mfa_factor_id: null
+          two_factor_enabled: false
         });
         
         setIsMfaEnabled(false);
@@ -59,28 +71,34 @@ export default function SecuritySettings() {
     if (!mfaSecret || !verificationCode) return;
 
     try {
-      const { error: verifyError } = await supabase.auth.mfa.challenge({
-        factorId: mfaSecret.id,
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+        factorId: mfaSecret.id
       });
       
-      if (verifyError) throw verifyError;
+      if (challengeError) throw challengeError;
+      setChallengeId(challengeData.id);
+
+      if (!challengeData.id) {
+        throw new Error('Failed to get challenge ID');
+      }
 
       const { error: verifyCodeError } = await supabase.auth.mfa.verify({
         factorId: mfaSecret.id,
-        code: verificationCode,
+        challengeId: challengeData.id,
+        code: verificationCode
       });
 
       if (verifyCodeError) throw verifyCodeError;
 
       await updateSettings({
-        two_factor_enabled: true,
-        mfa_factor_id: mfaSecret.id
+        two_factor_enabled: true
       });
 
       setIsMfaEnabled(true);
       setShowMfaDialog(false);
       setMfaSecret(null);
       setVerificationCode("");
+      setChallengeId(null);
       toast.success('Two-factor authentication enabled');
     } catch (error) {
       console.error('MFA verification error:', error);
@@ -213,8 +231,8 @@ export default function SecuritySettings() {
                     maxLength={6}
                     render={({ slots }) => (
                       <InputOTPGroup>
-                        {slots.map((slot, index) => (
-                          <InputOTPSlot key={index} {...slot} />
+                        {slots.map((slot, i) => (
+                          <InputOTPSlot key={i} {...slot} index={i} />
                         ))}
                       </InputOTPGroup>
                     )}
