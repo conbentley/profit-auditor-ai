@@ -1,3 +1,4 @@
+
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5,13 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Country, City, ICity } from "country-state-city";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, ChevronsUpDown } from "lucide-react";
@@ -37,14 +31,17 @@ const ProfileSettings = () => {
 
   useEffect(() => {
     if (formData.country) {
-      const countryCities = City.getCitiesOfCountry(
-        countries.find(c => c.name === formData.country)?.isoCode || ''
-      ) || [];
-      setCities(countryCities);
+      const selectedCountry = countries.find(c => c.name === formData.country);
+      if (selectedCountry) {
+        const countryCities = City.getCitiesOfCountry(selectedCountry.isoCode) || [];
+        setCities(countryCities);
 
-      if (!countryCities.some(city => city.name === formData.city)) {
-        setFormData(prev => ({ ...prev, city: '' }));
+        if (!countryCities.some(city => city.name === formData.city)) {
+          setFormData(prev => ({ ...prev, city: '' }));
+        }
       }
+    } else {
+      setCities([]);
     }
   }, [formData.country]);
 
