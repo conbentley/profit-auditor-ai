@@ -152,13 +152,13 @@ export default function FinancialIntegrations() {
 
         <div className="space-y-2">
           <Label htmlFor="file">Upload Spreadsheet (Optional)</Label>
-          <div className="flex items-center gap-4 min-h-[2.5rem] border rounded-md px-3">
+          <div className="flex items-center gap-4 h-10 border rounded-md px-3">
             <Input
               id="file"
               type="file"
               onChange={handleFileChange}
               accept=".xlsx,.xls,.csv"
-              className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 border-0 p-0"
+              className="file:mr-4 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 border-0 p-0"
             />
             {file && (
               <div className="flex items-center gap-2 text-sm text-gray-500 whitespace-nowrap">
