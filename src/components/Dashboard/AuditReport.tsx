@@ -66,7 +66,7 @@ export default function AuditReport() {
                 Generating...
               </>
             ) : (
-              "Generate AI Profit Audit"
+              "Generate New AI Profit Audit"
             )}
           </Button>
         </div>
