@@ -55,14 +55,9 @@ const Header = () => {
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                className="relative w-10 h-10 rounded-full"
-              >
-                <div className="w-full h-full rounded-full bg-primary flex items-center justify-center">
-                  <span className="text-white font-medium">{getInitials()}</span>
-                </div>
-              </Button>
+              <button className="w-10 h-10 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors">
+                <span className="text-white font-medium">{getInitials()}</span>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end">
               <div className="flex items-center gap-2 p-2">
