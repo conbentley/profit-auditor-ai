@@ -25,7 +25,21 @@ interface AuditFinding {
   description: string;
   potential_savings: number;
   status: 'pending' | 'in_progress' | 'resolved' | 'dismissed';
-  resolution_steps: Record<string, any>;
+  resolution_steps: Record<string, string>;
+}
+
+interface KPI {
+  metric: string;
+  value: string;
+  trend: string;
+}
+
+interface Recommendation {
+  title: string;
+  description: string;
+  impact: string;
+  difficulty: string;
+  estimated_savings: number;
 }
 
 interface AuditRecord {
@@ -33,19 +47,19 @@ interface AuditRecord {
   created_at: string;
   audit_date: string;
   summary: string;
-  kpis: Array<{
-    metric: string;
-    value: string;
-    trend: string;
-  }>;
-  recommendations: Array<{
-    title: string;
-    description: string;
-    impact: string;
-    difficulty: string;
-    estimated_savings: number;
-  }>;
+  kpis: KPI[];
+  recommendations: Recommendation[];
   findings?: AuditFinding[];
+}
+
+interface SupabaseAuditRecord {
+  id: string;
+  created_at: string;
+  audit_date: string;
+  summary: string;
+  kpis: any;
+  recommendations: any;
+  findings: any[];
 }
 
 const getSeverityColor = (severity: AuditFinding['severity']) => {
@@ -81,6 +95,37 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+const transformSupabaseRecord = (record: SupabaseAuditRecord): AuditRecord => {
+  return {
+    id: record.id,
+    created_at: record.created_at,
+    audit_date: record.audit_date,
+    summary: record.summary,
+    kpis: Array.isArray(record.kpis) ? record.kpis.map((kpi: any) => ({
+      metric: String(kpi.metric || ''),
+      value: String(kpi.value || ''),
+      trend: String(kpi.trend || ''),
+    })) : [],
+    recommendations: Array.isArray(record.recommendations) ? record.recommendations.map((rec: any) => ({
+      title: String(rec.title || ''),
+      description: String(rec.description || ''),
+      impact: String(rec.impact || ''),
+      difficulty: String(rec.difficulty || ''),
+      estimated_savings: Number(rec.estimated_savings || 0),
+    })) : [],
+    findings: Array.isArray(record.findings) ? record.findings.map((finding: any) => ({
+      id: String(finding.id || ''),
+      category: finding.category,
+      severity: finding.severity,
+      title: String(finding.title || ''),
+      description: String(finding.description || ''),
+      potential_savings: Number(finding.potential_savings || 0),
+      status: finding.status || 'pending',
+      resolution_steps: finding.resolution_steps || {},
+    })) : undefined,
+  };
+};
+
 const AuditHistory = () => {
   const [expandedAudit, setExpandedAudit] = useState<string | null>(null);
 
@@ -90,7 +135,6 @@ const AuditHistory = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Fetch audits with their findings
       const { data: auditData, error: auditError } = await supabase
         .from('financial_audits')
         .select('*, findings:audit_findings(*)')
@@ -98,7 +142,9 @@ const AuditHistory = () => {
         .order('audit_date', { ascending: false });
 
       if (auditError) throw auditError;
-      return auditData as AuditRecord[];
+      
+      // Transform the data to ensure type safety
+      return (auditData || []).map(transformSupabaseRecord);
     }
   });
 
