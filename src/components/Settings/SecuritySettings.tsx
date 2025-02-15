@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertCircle, ShieldCheck, KeyRound } from "lucide-react";
+import AuditLogViewer from "./AuditLogViewer";
 
 interface MFAData {
   id: string;

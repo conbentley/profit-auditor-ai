@@ -191,6 +191,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_audit_logs: {
+        Row: {
+          created_at: string
+          event_type: Database["public"]["Enums"]["audit_event_type"]
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: Database["public"]["Enums"]["audit_event_type"]
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["audit_event_type"]
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           ai_explanation_detail:
@@ -326,10 +356,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      log_audit_event: {
+        Args: {
+          p_user_id: string
+          p_event_type: Database["public"]["Enums"]["audit_event_type"]
+          p_metadata?: Json
+          p_ip_address?: string
+          p_user_agent?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       accounting_provider: "xero" | "quickbooks" | "sage"
+      audit_event_type:
+        | "mfa_enabled"
+        | "mfa_disabled"
+        | "login"
+        | "logout"
+        | "settings_updated"
+        | "data_exported"
+        | "password_changed"
+        | "email_changed"
       audit_frequency: "on_demand" | "weekly" | "monthly"
       dashboard_layout: "grid" | "list"
       explanation_detail: "basic" | "intermediate" | "advanced"

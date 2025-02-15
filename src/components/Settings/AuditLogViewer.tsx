@@ -15,11 +15,24 @@ import { Shield, UserRound, Settings2, Download, ChevronLeft, ChevronRight } fro
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+type AuditEventType = 
+  | 'mfa_enabled'
+  | 'mfa_disabled'
+  | 'login'
+  | 'logout'
+  | 'settings_updated'
+  | 'data_exported'
+  | 'password_changed'
+  | 'email_changed';
+
 interface AuditEvent {
   id: string;
-  event_type: string;
+  user_id: string;
+  event_type: AuditEventType;
   created_at: string;
-  metadata: any;
+  metadata: Record<string, any>;
+  ip_address?: string;
+  user_agent?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -41,11 +54,11 @@ export default function AuditLogViewer() {
         .range((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE - 1);
 
       if (error) throw error;
-      return data as AuditEvent[];
+      return data as unknown as AuditEvent[];
     }
   });
 
-  const getEventIcon = (eventType: string) => {
+  const getEventIcon = (eventType: AuditEventType) => {
     switch (eventType) {
       case 'mfa_enabled':
       case 'mfa_disabled':
