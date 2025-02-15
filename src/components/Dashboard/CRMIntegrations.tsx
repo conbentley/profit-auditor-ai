@@ -16,6 +16,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 type CRMPlatform = 'salesforce' | 'hubspot' | 'zoho' | 'dynamics365' | 'pipedrive' | 'gohighlevel';
 
+const PLATFORMS_REQUIRING_URL: CRMPlatform[] = ['salesforce', 'zoho', 'dynamics365'];
+
 export default function CRMIntegrations() {
   const [isLoading, setIsLoading] = useState(false);
   const [platform, setPlatform] = useState<CRMPlatform | null>(null);
@@ -37,13 +39,19 @@ export default function CRMIntegrations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const credentials: Record<string, string> = {
+        api_key: apiKey,
+        api_secret: apiSecret,
+      };
+
+      // Only include instance_url if the platform requires it
+      if (PLATFORMS_REQUIRING_URL.includes(platform)) {
+        credentials.instance_url = instanceUrl;
+      }
+
       const { error } = await supabase.from('crm_integrations').insert({
         platform,
-        credentials: {
-          api_key: apiKey,
-          api_secret: apiSecret,
-          instance_url: instanceUrl,
-        },
+        credentials,
         user_id: user.id,
       });
 
@@ -59,6 +67,19 @@ export default function CRMIntegrations() {
       console.error("Integration error:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getInstanceUrlPlaceholder = (platform: CRMPlatform) => {
+    switch (platform) {
+      case 'salesforce':
+        return 'https://your-instance.my.salesforce.com';
+      case 'zoho':
+        return 'https://www.zohoapis.com';
+      case 'dynamics365':
+        return 'https://your-org.crm.dynamics.com';
+      default:
+        return 'https://your-instance.crm.com';
     }
   };
 
@@ -86,17 +107,19 @@ export default function CRMIntegrations() {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="instanceUrl">Instance URL</Label>
-          <Input
-            id="instanceUrl"
-            type="url"
-            value={instanceUrl}
-            onChange={(e) => setInstanceUrl(e.target.value)}
-            placeholder="https://your-instance.crm.com"
-            required
-          />
-        </div>
+        {platform && PLATFORMS_REQUIRING_URL.includes(platform) && (
+          <div className="space-y-2">
+            <Label htmlFor="instanceUrl">Instance URL</Label>
+            <Input
+              id="instanceUrl"
+              type="url"
+              value={instanceUrl}
+              onChange={(e) => setInstanceUrl(e.target.value)}
+              placeholder={platform ? getInstanceUrlPlaceholder(platform) : ""}
+              required
+            />
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="apiKey">API Key</Label>
