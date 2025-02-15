@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
 import { Country, City, ICity } from "country-state-city";
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -142,24 +141,21 @@ const ProfileSettings = () => {
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full p-0">
-              <Command>
-                <CommandInput placeholder="Search country..." />
+            <PopoverContent className="w-[200px] p-0">
+              <Command className="w-full">
+                <CommandInput placeholder="Search country..." className="h-9" />
                 <CommandEmpty>No country found.</CommandEmpty>
-                <CommandGroup className="max-h-[300px] overflow-auto">
-                  {countries.map((country) => (
+                <CommandGroup>
+                  {countries.length > 0 && countries.map((country) => (
                     <CommandItem
                       key={country.isoCode}
-                      value={country.name}
-                      onSelect={handleCountryChange}
+                      onSelect={() => handleCountryChange(country.name)}
+                      className="cursor-pointer"
                     >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          formData.country === country.name ? "opacity-100" : "opacity-0"
-                        )}
-                      />
                       {country.name}
+                      {formData.country === country.name && (
+                        <Check className="ml-auto h-4 w-4" />
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -183,24 +179,21 @@ const ProfileSettings = () => {
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full p-0">
-              <Command>
-                <CommandInput placeholder="Search city..." />
+            <PopoverContent className="w-[200px] p-0">
+              <Command className="w-full">
+                <CommandInput placeholder="Search city..." className="h-9" />
                 <CommandEmpty>No city found.</CommandEmpty>
-                <CommandGroup className="max-h-[300px] overflow-auto">
-                  {cities.map((city) => (
+                <CommandGroup>
+                  {cities.length > 0 && cities.map((city) => (
                     <CommandItem
                       key={city.name}
-                      value={city.name}
-                      onSelect={handleCityChange}
+                      onSelect={() => handleCityChange(city.name)}
+                      className="cursor-pointer"
                     >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          formData.city === city.name ? "opacity-100" : "opacity-0"
-                        )}
-                      />
                       {city.name}
+                      {formData.city === city.name && (
+                        <Check className="ml-auto h-4 w-4" />
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>
