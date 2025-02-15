@@ -536,6 +536,62 @@ export type Database = {
         }
         Relationships: []
       }
+      marketplace_settings: {
+        Row: {
+          created_at: string
+          fulfillment_type: string | null
+          id: string
+          integration_id: string
+          marketplace_id: string | null
+          region: string
+          seller_id: string | null
+          settings: Json | null
+          sync_inventory: boolean | null
+          sync_orders: boolean | null
+          sync_pricing: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fulfillment_type?: string | null
+          id?: string
+          integration_id: string
+          marketplace_id?: string | null
+          region: string
+          seller_id?: string | null
+          settings?: Json | null
+          sync_inventory?: boolean | null
+          sync_orders?: boolean | null
+          sync_pricing?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fulfillment_type?: string | null
+          id?: string
+          integration_id?: string
+          marketplace_id?: string | null
+          region?: string
+          seller_id?: string | null
+          settings?: Json | null
+          sync_inventory?: boolean | null
+          sync_orders?: boolean | null
+          sync_pricing?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_settings_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "ecommerce_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -771,6 +827,8 @@ export type Database = {
         | "magento"
         | "bigcommerce"
         | "prestashop"
+        | "amazon"
+        | "ebay"
       explanation_detail: "basic" | "intermediate" | "advanced"
       notification_frequency: "instant" | "daily" | "weekly"
       theme_preference: "light" | "dark" | "system"

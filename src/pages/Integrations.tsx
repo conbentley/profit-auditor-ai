@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FinancialIntegrations from "@/components/Dashboard/FinancialIntegrations";
 import EcommerceIntegrations from "@/components/Dashboard/EcommerceIntegrations";
+import MarketplaceIntegrations from "@/components/Dashboard/MarketplaceIntegrations";
 
 export default function Integrations() {
   return (
@@ -19,6 +20,7 @@ export default function Integrations() {
               <TabsList>
                 <TabsTrigger value="financial">Financial</TabsTrigger>
                 <TabsTrigger value="ecommerce">E-commerce</TabsTrigger>
+                <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
               </TabsList>
               
               <TabsContent value="financial">
@@ -27,6 +29,10 @@ export default function Integrations() {
               
               <TabsContent value="ecommerce">
                 <EcommerceIntegrations />
+              </TabsContent>
+
+              <TabsContent value="marketplace">
+                <MarketplaceIntegrations />
               </TabsContent>
             </Tabs>
           </Card>
