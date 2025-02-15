@@ -3,13 +3,19 @@ import { DollarSign, TrendingUp, PieChart, AlertCircle } from "lucide-react";
 import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import StatCard from "@/components/Dashboard/StatCard";
-import FinancialIntegrations from "@/components/Dashboard/FinancialIntegrations";
 import AuditReport from "@/components/Dashboard/AuditReport";
 import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
 import { formatCurrency, formatPercentage } from "@/lib/formatters";
+import { ChatMessage } from "@/components/Chat/ChatMessage";
+import { ChatInput } from "@/components/Chat/ChatInput";
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
 
 const Index = () => {
   const { data: metricsData, isLoading } = useDashboardMetrics();
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [query, setQuery] = useState('');
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
 
   const metrics = metricsData?.metrics ?? {
     revenue: 0,
@@ -23,6 +29,31 @@ const Index = () => {
     profit_margin: 0,
     expense_ratio: 0,
     audit_alerts: 0
+  };
+
+  const handleSendMessage = async () => {
+    if (!query.trim()) return;
+
+    setIsLoadingChat(true);
+    setMessages(prev => [...prev, { role: 'user', content: query }]);
+    setQuery('');
+
+    try {
+      const response = await fetch('/api/chat-with-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: query }),
+      });
+
+      if (!response.ok) throw new Error('Failed to get response');
+
+      const data = await response.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+    } finally {
+      setIsLoadingChat(false);
+    }
   };
 
   return (
@@ -71,7 +102,24 @@ const Index = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <FinancialIntegrations />
+            <Card className="p-6">
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">AI Profit Chat</h2>
+                <div className="h-[400px] overflow-y-auto space-y-4 mb-4">
+                  {messages.map((message, index) => (
+                    <ChatMessage key={index} role={message.role}>
+                      {message.content}
+                    </ChatMessage>
+                  ))}
+                </div>
+                <ChatInput
+                  query={query}
+                  setQuery={setQuery}
+                  onSend={handleSendMessage}
+                  isLoading={isLoadingChat}
+                />
+              </div>
+            </Card>
             <AuditReport />
           </div>
         </main>
