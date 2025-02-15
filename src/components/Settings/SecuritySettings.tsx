@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -198,6 +197,10 @@ export default function SecuritySettings() {
           </div>
         </div>
       </Card>
+
+      <div className="mt-6">
+        <AuditLogViewer />
+      </div>
 
       <Dialog open={showMfaDialog} onOpenChange={setShowMfaDialog}>
         <DialogContent className="sm:max-w-md">
