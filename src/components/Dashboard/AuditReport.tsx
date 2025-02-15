@@ -17,6 +17,12 @@ export default function AuditReport() {
       if (!user) throw new Error("Not authenticated");
 
       const currentDate = new Date();
+      console.log('Generating audit for:', {
+        user_id: user.id,
+        month: currentDate.getMonth() + 1,
+        year: currentDate.getFullYear(),
+      });
+
       const response = await supabase.functions.invoke('generate-audit', {
         body: {
           user_id: user.id,
@@ -25,11 +31,21 @@ export default function AuditReport() {
         },
       });
 
-      if (response.error) throw response.error;
+      console.log('Edge function response:', response);
+
+      if (response.error) {
+        console.error('Edge function error:', response.error);
+        throw response.error;
+      }
+
       toast.success("Audit report generated successfully");
     } catch (error) {
       console.error("Failed to generate audit:", error);
-      toast.error("Failed to generate audit report");
+      toast.error(
+        error instanceof Error 
+          ? `Failed to generate audit: ${error.message}`
+          : "Failed to generate audit report"
+      );
     } finally {
       setIsLoading(false);
     }
