@@ -1,26 +1,17 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, Trash2 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Json } from "@/integrations/supabase/types";
+import { ChatMessage } from "@/components/Chat/ChatMessage";
+import { ChatInput } from "@/components/Chat/ChatInput";
+import { ClearChatDialog } from "@/components/Chat/ClearChatDialog";
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -228,22 +219,9 @@ export default function AIProfitChat() {
             >
               <div className="space-y-4">
                 {!isLoadingHistory && chatHistory?.messages?.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`flex ${
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[80%] p-3 rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground ml-4'
-                          : 'bg-muted mr-4'
-                      }`}
-                    >
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    </div>
-                  </div>
+                  <ChatMessage key={index} role={message.role}>
+                    {message.content}
+                  </ChatMessage>
                 ))}
                 {(isChatLoading || updateChat.isPending) && (
                   <div className="flex justify-start">
@@ -256,54 +234,22 @@ export default function AIProfitChat() {
             </ScrollArea>
 
             {/* Chat Input */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Ask about your financial performance..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                disabled={isChatLoading || updateChat.isPending}
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={isChatLoading || updateChat.isPending || !query.trim()}
-              >
-                {isChatLoading || updateChat.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+            <ChatInput
+              query={query}
+              setQuery={setQuery}
+              onSend={handleSendMessage}
+              isLoading={isChatLoading || updateChat.isPending}
+            />
           </Card>
         </main>
       </div>
 
       {/* Clear Chat Confirmation Modal */}
-      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear Chat History</AlertDialogTitle>
-            <AlertDialogDescription>
-              Warning: This conversation will be permanently deleted. Do you want to permanently delete it?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>No</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={clearChat}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Yes, Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ClearChatDialog
+        open={showClearConfirm}
+        onOpenChange={setShowClearConfirm}
+        onConfirm={clearChat}
+      />
     </div>
   );
 }
