@@ -694,6 +694,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           ai_explanation_detail:
@@ -835,6 +856,12 @@ export type Database = {
           previous_metrics: Json
         }
         Returns: Json
+      }
+      is_admin: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: boolean
       }
       log_audit_event: {
         Args: {

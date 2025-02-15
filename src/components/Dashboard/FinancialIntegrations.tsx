@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AccountingProvider } from "@/types/financial";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 async function validateFinancialCredentials(
   provider: AccountingProvider,
@@ -52,6 +52,7 @@ async function validateFinancialCredentials(
 }
 
 export default function FinancialIntegrations() {
+  const { isAdmin } = useIsAdmin();
   const [isLoading, setIsLoading] = useState(false);
   const [provider, setProvider] = useState<AccountingProvider | null>(null);
   const [apiKey, setApiKey] = useState('');
@@ -126,14 +127,16 @@ export default function FinancialIntegrations() {
           </Select>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="test-mode"
-            checked={isTestMode}
-            onCheckedChange={setIsTestMode}
-          />
-          <Label htmlFor="test-mode">Test Mode</Label>
-        </div>
+        {isAdmin && (
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="test-mode"
+              checked={isTestMode}
+              onCheckedChange={setIsTestMode}
+            />
+            <Label htmlFor="test-mode">Test Mode</Label>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="apiKey">API Key</Label>
@@ -142,7 +145,7 @@ export default function FinancialIntegrations() {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder={isTestMode ? "test_api_key" : "Enter API key"}
+            placeholder={isTestMode && isAdmin ? "test_api_key" : "Enter API key"}
             required
           />
         </div>
@@ -154,16 +157,16 @@ export default function FinancialIntegrations() {
             type="password"
             value={apiSecret}
             onChange={(e) => setApiSecret(e.target.value)}
-            placeholder={isTestMode ? "test_api_secret" : "Enter API secret"}
+            placeholder={isTestMode && isAdmin ? "test_api_secret" : "Enter API secret"}
             required
           />
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : `Connect ${isTestMode ? '(Test Mode)' : ''}`}
+          {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
         </Button>
 
-        {isTestMode && (
+        {isTestMode && isAdmin && (
           <p className="text-sm text-muted-foreground mt-2">
             Test mode enabled. No real API calls will be made.
           </p>
