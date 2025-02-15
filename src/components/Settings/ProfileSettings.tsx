@@ -1,4 +1,3 @@
-
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +12,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const ProfileSettings = () => {
   const { settings, updateSettings, isUpdating } = useUserSettings();
   const [cities, setCities] = useState<ICity[]>([]);
+  const [openCountry, setOpenCountry] = useState(false);
+  const [openCity, setOpenCity] = useState(false);
   const [formData, setFormData] = useState({
     full_name: settings?.full_name || '',
     email: settings?.email || '',
@@ -37,7 +42,6 @@ const ProfileSettings = () => {
       ) || [];
       setCities(countryCities);
 
-      // If the current city is not in the new country, reset it
       if (!countryCities.some(city => city.name === formData.city)) {
         setFormData(prev => ({ ...prev, city: '' }));
       }
@@ -51,10 +55,12 @@ const ProfileSettings = () => {
 
   const handleCountryChange = (value: string) => {
     setFormData(prev => ({ ...prev, country: value, city: '' }));
+    setOpenCountry(false);
   };
 
   const handleCityChange = (value: string) => {
     setFormData(prev => ({ ...prev, city: value }));
+    setOpenCity(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -127,38 +133,83 @@ const ProfileSettings = () => {
 
         <div className="space-y-2">
           <label htmlFor="country" className="text-sm font-medium">Country <span className="text-red-500">*</span></label>
-          <Select value={formData.country} onValueChange={handleCountryChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select a country" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries.map((country) => (
-                <SelectItem key={country.isoCode} value={country.name}>
-                  {country.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={openCountry} onOpenChange={setOpenCountry}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openCountry}
+                className="w-full justify-between"
+              >
+                {formData.country || "Select a country..."}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+              <Command>
+                <CommandInput placeholder="Search country..." />
+                <CommandEmpty>No country found.</CommandEmpty>
+                <CommandGroup className="max-h-[300px] overflow-auto">
+                  {countries.map((country) => (
+                    <CommandItem
+                      key={country.isoCode}
+                      value={country.name}
+                      onSelect={handleCountryChange}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          formData.country === country.name ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {country.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-2">
           <label htmlFor="city" className="text-sm font-medium">City <span className="text-red-500">*</span></label>
-          <Select 
-            value={formData.city} 
-            onValueChange={handleCityChange}
-            disabled={!formData.country}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={formData.country ? "Select a city" : "Select a country first"} />
-            </SelectTrigger>
-            <SelectContent>
-              {cities.map((city) => (
-                <SelectItem key={city.name} value={city.name}>
-                  {city.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={openCity} onOpenChange={setOpenCity}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openCity}
+                className="w-full justify-between"
+                disabled={!formData.country}
+              >
+                {formData.city || (formData.country ? "Select a city..." : "Select a country first")}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+              <Command>
+                <CommandInput placeholder="Search city..." />
+                <CommandEmpty>No city found.</CommandEmpty>
+                <CommandGroup className="max-h-[300px] overflow-auto">
+                  {cities.map((city) => (
+                    <CommandItem
+                      key={city.name}
+                      value={city.name}
+                      onSelect={handleCityChange}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          formData.city === city.name ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {city.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
