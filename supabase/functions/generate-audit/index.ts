@@ -14,13 +14,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface FinancialMetrics {
-  revenue: number;
-  expenses: number;
-  profit_margin: number;
-  cost_breakdown: Record<string, number>;
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -44,32 +37,32 @@ serve(async (req) => {
 
     // Calculate financial metrics
     const revenue = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+      ?.filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
 
     const expenses = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+      ?.filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
 
     const profit_margin = revenue > 0 ? ((revenue - expenses) / revenue) * 100 : 0;
 
     // Calculate cost breakdown by category
     const cost_breakdown = transactions
-      .filter(t => t.type === 'expense')
+      ?.filter(t => t.type === 'expense')
       .reduce((acc, t) => {
         const category = t.category || 'Uncategorized';
         acc[category] = (acc[category] || 0) + Number(t.amount);
         return acc;
-      }, {} as Record<string, number>);
+      }, {} as Record<string, number>) ?? {};
 
-    const financialData: FinancialMetrics = {
+    const financialData = {
       revenue,
       expenses,
       profit_margin,
       cost_breakdown
     };
 
-    // Generate AI analysis
+    // Generate AI analysis with strict format requirements
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -77,42 +70,43 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: 'You are a financial analyst AI that provides detailed business insights and recommendations.'
+            content: 'You are a financial analyst AI. Analyze the provided financial data and return ONLY a JSON object with this exact structure, no markdown or other formatting: {"summary": "string", "kpis": [{"metric": "string", "value": "string", "trend": "string"}], "recommendations": [{"title": "string", "description": "string", "impact": "string", "difficulty": "string"}]}'
           },
           {
             role: 'user',
-            content: `Analyze these financial metrics and provide insights and recommendations:
-              Revenue: ${financialData.revenue}
-              Expenses: ${financialData.expenses}
-              Profit Margin: ${financialData.profit_margin.toFixed(2)}%
-              Cost Breakdown: ${JSON.stringify(financialData.cost_breakdown)}
-              
-              Provide a detailed analysis including:
-              1. Summary of key performance indicators
-              2. Areas of concern or opportunity
-              3. Specific, actionable recommendations
-              4. Industry benchmarking insights
-              
-              Format the response as JSON with these keys:
-              {
-                summary: string,
-                kpis: [{ metric: string, value: string, trend: string }],
-                recommendations: [{ title: string, description: string, impact: string, difficulty: string }]
-              }`
+            content: `Analyze these financial metrics and provide insights: ${JSON.stringify(financialData)}`
           }
-        ],
+        ]
       }),
     });
 
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
     const aiResponse = await response.json();
-    const analysis = JSON.parse(aiResponse.choices[0].message.content);
+    console.log('OpenAI response:', aiResponse.choices[0].message.content);
+
+    // Parse the response, ensuring it's valid JSON
+    let analysis;
+    try {
+      analysis = JSON.parse(aiResponse.choices[0].message.content.trim());
+    } catch (parseError) {
+      console.error('Failed to parse OpenAI response:', parseError);
+      throw new Error('Invalid response format from AI service');
+    }
+
+    // Validate required fields
+    if (!analysis.summary || !Array.isArray(analysis.kpis) || !Array.isArray(analysis.recommendations)) {
+      throw new Error('Invalid response structure from AI service');
+    }
 
     // Store audit results
-    const { error: insertError } = await supabase
+    const { data: audit, error: insertError } = await supabase
       .from('financial_audits')
       .insert({
         user_id,
@@ -120,18 +114,32 @@ serve(async (req) => {
         summary: analysis.summary,
         kpis: analysis.kpis,
         recommendations: analysis.recommendations,
+        monthly_metrics: {
+          revenue,
+          profit_margin,
+          expense_ratio: expenses > 0 ? (expenses / revenue) * 100 : 0,
+          audit_alerts: analysis.recommendations.length,
+          previous_month: {
+            revenue: 0,
+            profit_margin: 0,
+            expense_ratio: 0,
+            audit_alerts: 0
+          }
+        },
         analysis_metadata: {
           data_source: 'transactions',
-          ai_model: 'gpt-4',
+          ai_model: 'gpt-4o-mini',
           timestamp: new Date().toISOString(),
           metrics: financialData
         }
-      });
+      })
+      .select()
+      .single();
 
     if (insertError) throw insertError;
 
     return new Response(
-      JSON.stringify(analysis),
+      JSON.stringify({ success: true, audit: audit }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
