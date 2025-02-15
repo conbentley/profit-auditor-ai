@@ -14,6 +14,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface FinancialMetrics {
+  revenue: number;
+  expenses: number;
+  profit_margin: number;
+  cost_breakdown: Record<string, number>;
+}
+
+interface AuditFinding {
+  category: 'subscription' | 'pricing' | 'tax' | 'marketing' | 'inventory';
+  severity: 'critical' | 'medium' | 'low';
+  title: string;
+  description: string;
+  potential_savings: number;
+  resolution_steps: Record<string, any>;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -37,32 +53,46 @@ serve(async (req) => {
 
     // Calculate financial metrics
     const revenue = transactions
-      ?.filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const expenses = transactions
-      ?.filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const profit_margin = revenue > 0 ? ((revenue - expenses) / revenue) * 100 : 0;
 
     // Calculate cost breakdown by category
     const cost_breakdown = transactions
-      ?.filter(t => t.type === 'expense')
+      .filter(t => t.type === 'expense')
       .reduce((acc, t) => {
         const category = t.category || 'Uncategorized';
         acc[category] = (acc[category] || 0) + Number(t.amount);
         return acc;
-      }, {} as Record<string, number>) ?? {};
+      }, {} as Record<string, number>);
 
-    const financialData = {
+    const financialData: FinancialMetrics = {
       revenue,
       expenses,
       profit_margin,
       cost_breakdown
     };
 
-    // Generate AI analysis
+    // Fetch competitor prices for comparison
+    const { data: competitorPrices } = await supabase
+      .from('competitor_prices')
+      .select('*')
+      .eq('user_id', user_id);
+
+    // Fetch marketing performance data
+    const { data: marketingData } = await supabase
+      .from('marketing_performance')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('date', startDate.toISOString())
+      .lte('date', endDate.toISOString());
+
+    // Generate AI analysis with enhanced context
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -74,24 +104,53 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a financial analyst AI. Generate concise financial insights. Format response as a strict JSON object with these exact fields:
-            {
-              "summary": "Brief overview of financial health",
-              "kpis": [{"metric": "string", "value": "string", "trend": "string"}],
-              "recommendations": [{"title": "string", "description": "string", "impact": "string", "difficulty": "string"}]
-            }`
+            content: `You are an expert financial analyst AI that identifies profit leaks and provides actionable recommendations. 
+            Focus on these key areas:
+            1. Subscription optimization
+            2. Pricing strategy vs competitors
+            3. Tax efficiency
+            4. Marketing ROI
+            5. Inventory management
+            
+            For each finding, provide specific, quantified savings estimates and clear step-by-step resolution steps.`
           },
           {
             role: 'user',
-            content: JSON.stringify(financialData)
+            content: `Analyze these financial metrics and provide detailed insights:
+              Financial Data: ${JSON.stringify(financialData)}
+              Competitor Prices: ${JSON.stringify(competitorPrices)}
+              Marketing Performance: ${JSON.stringify(marketingData)}
+              
+              Provide a comprehensive analysis including:
+              1. Key performance indicators and their trends
+              2. Specific profit leaks identified
+              3. Prioritized recommendations with estimated savings
+              4. Industry benchmarking insights
+              
+              Format the response as JSON with these keys:
+              {
+                summary: string,
+                kpis: [{ metric: string, value: string, trend: string }],
+                findings: [{ 
+                  category: string,
+                  severity: string,
+                  title: string,
+                  description: string,
+                  potential_savings: number,
+                  resolution_steps: object
+                }],
+                recommendations: [{ 
+                  title: string,
+                  description: string,
+                  impact: string,
+                  difficulty: string,
+                  estimated_savings: number
+                }]
+              }`
           }
-        ]
+        ],
       }),
     });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
 
     const aiResponse = await response.json();
     const analysis = JSON.parse(aiResponse.choices[0].message.content);
@@ -105,18 +164,6 @@ serve(async (req) => {
         summary: analysis.summary,
         kpis: analysis.kpis,
         recommendations: analysis.recommendations,
-        monthly_metrics: {
-          revenue,
-          profit_margin,
-          expense_ratio: expenses > 0 ? (expenses / revenue) * 100 : 0,
-          audit_alerts: analysis.recommendations?.length ?? 0,
-          previous_month: {
-            revenue: 0,
-            profit_margin: 0,
-            expense_ratio: 0,
-            audit_alerts: 0
-          }
-        },
         analysis_metadata: {
           data_source: 'transactions',
           ai_model: 'gpt-4o-mini',
@@ -129,8 +176,29 @@ serve(async (req) => {
 
     if (insertError) throw insertError;
 
+    // Store individual findings
+    if (analysis.findings) {
+      const findings = analysis.findings.map((finding: AuditFinding) => ({
+        user_id,
+        audit_id: audit.id,
+        category: finding.category,
+        severity: finding.severity,
+        title: finding.title,
+        description: finding.description,
+        potential_savings: finding.potential_savings,
+        resolution_steps: finding.resolution_steps,
+        status: 'pending'
+      }));
+
+      const { error: findingsError } = await supabase
+        .from('audit_findings')
+        .insert(findings);
+
+      if (findingsError) throw findingsError;
+    }
+
     return new Response(
-      JSON.stringify({ success: true, audit: audit }),
+      JSON.stringify(analysis),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

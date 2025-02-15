@@ -128,226 +128,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ecommerce_integrations: {
-        Row: {
-          created_at: string
-          credentials: Json
-          id: string
-          is_active: boolean | null
-          last_sync_at: string | null
-          last_sync_status: Json | null
-          metadata: Json | null
-          next_sync_at: string | null
-          platform: Database["public"]["Enums"]["ecommerce_platform"]
-          store_name: string | null
-          store_url: string
-          sync_frequency: unknown | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          credentials: Json
-          id?: string
-          is_active?: boolean | null
-          last_sync_at?: string | null
-          last_sync_status?: Json | null
-          metadata?: Json | null
-          next_sync_at?: string | null
-          platform: Database["public"]["Enums"]["ecommerce_platform"]
-          store_name?: string | null
-          store_url: string
-          sync_frequency?: unknown | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          credentials?: Json
-          id?: string
-          is_active?: boolean | null
-          last_sync_at?: string | null
-          last_sync_status?: Json | null
-          metadata?: Json | null
-          next_sync_at?: string | null
-          platform?: Database["public"]["Enums"]["ecommerce_platform"]
-          store_name?: string | null
-          store_url?: string
-          sync_frequency?: unknown | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      ecommerce_metrics: {
-        Row: {
-          average_order_value: number
-          created_at: string
-          customer_metrics: Json | null
-          daily_revenue: number
-          id: string
-          integration_id: string
-          metric_date: string
-          products_sold: number
-          top_products: Json | null
-          total_orders: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          average_order_value?: number
-          created_at?: string
-          customer_metrics?: Json | null
-          daily_revenue?: number
-          id?: string
-          integration_id: string
-          metric_date: string
-          products_sold?: number
-          top_products?: Json | null
-          total_orders?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          average_order_value?: number
-          created_at?: string
-          customer_metrics?: Json | null
-          daily_revenue?: number
-          id?: string
-          integration_id?: string
-          metric_date?: string
-          products_sold?: number
-          top_products?: Json | null
-          total_orders?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ecommerce_metrics_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "ecommerce_integrations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ecommerce_products: {
-        Row: {
-          cost: number | null
-          created_at: string
-          currency: string
-          id: string
-          integration_id: string
-          inventory_quantity: number | null
-          metadata: Json | null
-          name: string
-          platform_product_id: string
-          price: number
-          sku: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          cost?: number | null
-          created_at?: string
-          currency: string
-          id?: string
-          integration_id: string
-          inventory_quantity?: number | null
-          metadata?: Json | null
-          name: string
-          platform_product_id: string
-          price: number
-          sku?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          cost?: number | null
-          created_at?: string
-          currency?: string
-          id?: string
-          integration_id?: string
-          inventory_quantity?: number | null
-          metadata?: Json | null
-          name?: string
-          platform_product_id?: string
-          price?: number
-          sku?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ecommerce_products_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "ecommerce_integrations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ecommerce_sales: {
-        Row: {
-          created_at: string
-          currency: string
-          id: string
-          integration_id: string
-          metadata: Json | null
-          order_id: string
-          product_id: string
-          quantity: number
-          sale_date: string
-          total_price: number
-          unit_price: number
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          currency: string
-          id?: string
-          integration_id: string
-          metadata?: Json | null
-          order_id: string
-          product_id: string
-          quantity: number
-          sale_date: string
-          total_price: number
-          unit_price: number
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          currency?: string
-          id?: string
-          integration_id?: string
-          metadata?: Json | null
-          order_id?: string
-          product_id?: string
-          quantity?: number
-          sale_date?: string
-          total_price?: number
-          unit_price?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ecommerce_sales_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "ecommerce_integrations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ecommerce_sales_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "ecommerce_products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       financial_audits: {
         Row: {
           analysis_metadata: Json | null
@@ -396,7 +176,6 @@ export type Database = {
           last_sync_at: string | null
           last_sync_status: Json | null
           metadata: Json | null
-          next_sync_at: string | null
           provider: Database["public"]["Enums"]["accounting_provider"]
           sync_frequency: unknown | null
           updated_at: string
@@ -413,7 +192,6 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_status?: Json | null
           metadata?: Json | null
-          next_sync_at?: string | null
           provider: Database["public"]["Enums"]["accounting_provider"]
           sync_frequency?: unknown | null
           updated_at?: string
@@ -430,7 +208,6 @@ export type Database = {
           last_sync_at?: string | null
           last_sync_status?: Json | null
           metadata?: Json | null
-          next_sync_at?: string | null
           provider?: Database["public"]["Enums"]["accounting_provider"]
           sync_frequency?: unknown | null
           updated_at?: string
@@ -765,12 +542,6 @@ export type Database = {
         | "email_changed"
       audit_frequency: "on_demand" | "weekly" | "monthly"
       dashboard_layout: "grid" | "list"
-      ecommerce_platform:
-        | "shopify"
-        | "woocommerce"
-        | "magento"
-        | "bigcommerce"
-        | "prestashop"
       explanation_detail: "basic" | "intermediate" | "advanced"
       notification_frequency: "instant" | "daily" | "weekly"
       theme_preference: "light" | "dark" | "system"

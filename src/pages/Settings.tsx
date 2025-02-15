@@ -5,7 +5,6 @@ import Sidebar from "@/components/Dashboard/Sidebar";
 import { Card } from "@/components/ui/card";
 import SecuritySettings from "@/components/Settings/SecuritySettings";
 import FinancialIntegrations from "@/components/Dashboard/FinancialIntegrations";
-import EcommerceIntegrations from "@/components/Dashboard/EcommerceIntegrations";
 
 export default function Settings() {
   return (
@@ -28,10 +27,7 @@ export default function Settings() {
               </TabsContent>
 
               <TabsContent value="integrations">
-                <div className="space-y-6">
-                  <FinancialIntegrations />
-                  <EcommerceIntegrations />
-                </div>
+                <FinancialIntegrations />
               </TabsContent>
             </Tabs>
           </Card>

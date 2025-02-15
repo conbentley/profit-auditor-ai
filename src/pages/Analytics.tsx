@@ -8,9 +8,6 @@ import RevenueTrendChart from "@/components/Analytics/RevenueTrendChart";
 import ExpenseDistributionChart from "@/components/Analytics/ExpenseDistributionChart";
 import CashFlowChart from "@/components/Analytics/CashFlowChart";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
-import EcommerceOverview from "@/components/Analytics/EcommerceOverview";
-import ProductsList from "@/components/Analytics/ProductsList";
-import SalesHistory from "@/components/Analytics/SalesHistory";
 
 const Analytics = () => {
   const [timeRange] = useState("month"); // We can extend this later for different time ranges
@@ -85,22 +82,10 @@ const Analytics = () => {
             <AuditReport />
           </div>
 
-          {/* E-commerce Overview */}
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-4">E-commerce Performance</h2>
-            <EcommerceOverview />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <RevenueTrendChart data={revenueData} />
             <ExpenseDistributionChart data={pieChartData} />
             <CashFlowChart data={cashFlowData} />
-          </div>
-
-          {/* Products and Sales */}
-          <div className="space-y-6">
-            <ProductsList />
-            <SalesHistory />
           </div>
         </main>
       </div>
