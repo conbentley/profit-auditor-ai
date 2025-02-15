@@ -43,6 +43,7 @@ export type Database = {
           created_at: string
           id: string
           kpis: Json
+          monthly_metrics: Json
           recommendations: Json
           summary: string
           user_id: string
@@ -53,6 +54,7 @@ export type Database = {
           created_at?: string
           id?: string
           kpis: Json
+          monthly_metrics?: Json
           recommendations: Json
           summary: string
           user_id: string
@@ -63,6 +65,7 @@ export type Database = {
           created_at?: string
           id?: string
           kpis?: Json
+          monthly_metrics?: Json
           recommendations?: Json
           summary?: string
           user_id?: string
@@ -356,6 +359,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_monthly_changes: {
+        Args: {
+          current_metrics: Json
+          previous_metrics: Json
+        }
+        Returns: Json
+      }
       log_audit_event: {
         Args: {
           p_user_id: string
