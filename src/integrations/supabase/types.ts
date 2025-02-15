@@ -128,6 +128,45 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_integrations: {
+        Row: {
+          created_at: string
+          credentials: Json
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          last_sync_status: string | null
+          metadata: Json | null
+          platform: Database["public"]["Enums"]["crm_platform"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credentials: Json
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          metadata?: Json | null
+          platform: Database["public"]["Enums"]["crm_platform"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credentials?: Json
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          metadata?: Json | null
+          platform?: Database["public"]["Enums"]["crm_platform"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ecommerce_integrations: {
         Row: {
           created_at: string
@@ -820,6 +859,13 @@ export type Database = {
         | "password_changed"
         | "email_changed"
       audit_frequency: "on_demand" | "weekly" | "monthly"
+      crm_platform:
+        | "salesforce"
+        | "hubspot"
+        | "zoho"
+        | "dynamics365"
+        | "pipedrive"
+        | "gohighlevel"
       dashboard_layout: "grid" | "list"
       ecommerce_platform:
         | "shopify"
