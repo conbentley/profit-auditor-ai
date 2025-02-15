@@ -1,4 +1,5 @@
 
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,27 @@ export function LatestAuditReport() {
         .maybeSingle();
 
       if (error) throw error;
-      return data as AuditReport | null;
+      if (!data) return null;
+
+      // Convert raw JSON data to proper typed objects
+      const parsedData: AuditReport = {
+        id: data.id,
+        created_at: data.created_at,
+        summary: data.summary,
+        kpis: Array.isArray(data.kpis) ? data.kpis.map((kpi: any) => ({
+          metric: kpi.metric || '',
+          value: kpi.value || '',
+          trend: kpi.trend || '',
+        })) : [],
+        recommendations: Array.isArray(data.recommendations) ? data.recommendations.map((rec: any) => ({
+          title: rec.title || '',
+          description: rec.description || '',
+          impact: rec.impact || '',
+          difficulty: rec.difficulty || '',
+        })) : [],
+      };
+
+      return parsedData;
     },
     refetchInterval: 30000, // Poll every 30 seconds
   });
