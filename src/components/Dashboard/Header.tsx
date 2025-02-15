@@ -68,6 +68,10 @@ const Header = () => {
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate("/settings")} className="cursor-pointer">
+                <UserRound className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/settings?tab=security")} className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
