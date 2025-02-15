@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 type EcommercePlatform = 'shopify' | 'woocommerce' | 'magento' | 'bigcommerce' | 'prestashop';
 
@@ -51,6 +52,7 @@ async function validateEcommerceCredentials(
 }
 
 export default function EcommerceIntegrations() {
+  const { isAdmin } = useIsAdmin();
   const [isLoading, setIsLoading] = useState(false);
   const [platform, setPlatform] = useState<EcommercePlatform | null>(null);
   const [storeUrl, setStoreUrl] = useState('');
@@ -138,14 +140,16 @@ export default function EcommerceIntegrations() {
           </Select>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="test-mode"
-            checked={isTestMode}
-            onCheckedChange={setIsTestMode}
-          />
-          <Label htmlFor="test-mode">Test Mode</Label>
-        </div>
+        {isAdmin && (
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="test-mode"
+              checked={isTestMode}
+              onCheckedChange={setIsTestMode}
+            />
+            <Label htmlFor="test-mode">Test Mode</Label>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="storeName">Store Name</Label>
@@ -153,7 +157,7 @@ export default function EcommerceIntegrations() {
             id="storeName"
             value={storeName}
             onChange={(e) => setStoreName(e.target.value)}
-            placeholder={isTestMode ? "Test Store" : "Enter store name"}
+            placeholder={isTestMode && isAdmin ? "Test Store" : "Enter store name"}
             required
           />
         </div>
@@ -165,7 +169,7 @@ export default function EcommerceIntegrations() {
             type="url"
             value={storeUrl}
             onChange={(e) => setStoreUrl(e.target.value)}
-            placeholder={isTestMode ? "https://test-store.com" : "https://your-store.com"}
+            placeholder={isTestMode && isAdmin ? "https://test-store.com" : "https://your-store.com"}
             required
           />
         </div>
@@ -177,7 +181,7 @@ export default function EcommerceIntegrations() {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder={isTestMode ? "test_api_key" : "Enter API key"}
+            placeholder={isTestMode && isAdmin ? "test_api_key" : "Enter API key"}
             required
           />
         </div>
@@ -189,16 +193,16 @@ export default function EcommerceIntegrations() {
             type="password"
             value={apiSecret}
             onChange={(e) => setApiSecret(e.target.value)}
-            placeholder={isTestMode ? "test_api_secret" : "Enter API secret"}
+            placeholder={isTestMode && isAdmin ? "test_api_secret" : "Enter API secret"}
             required
           />
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : `Connect ${isTestMode ? '(Test Mode)' : ''}`}
+          {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
         </Button>
 
-        {isTestMode && (
+        {isTestMode && isAdmin && (
           <p className="text-sm text-muted-foreground mt-2">
             Test mode enabled. No real API calls will be made.
           </p>

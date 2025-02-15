@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 type MarketplacePlatform = 'amazon' | 'ebay' | 'etsy';
 
@@ -70,6 +71,7 @@ async function validateMarketplaceCredentials(
 }
 
 export default function MarketplaceIntegrations() {
+  const { isAdmin } = useIsAdmin();
   const [isLoading, setIsLoading] = useState(false);
   const [platform, setPlatform] = useState<MarketplacePlatform | null>(null);
   const [region, setRegion] = useState<string>('');
@@ -178,14 +180,16 @@ export default function MarketplaceIntegrations() {
           </Select>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="test-mode"
-            checked={isTestMode}
-            onCheckedChange={setIsTestMode}
-          />
-          <Label htmlFor="test-mode">Test Mode</Label>
-        </div>
+        {isAdmin && (
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="test-mode"
+              checked={isTestMode}
+              onCheckedChange={setIsTestMode}
+            />
+            <Label htmlFor="test-mode">Test Mode</Label>
+          </div>
+        )}
 
         {platform && (
           <div className="space-y-2">
@@ -211,7 +215,7 @@ export default function MarketplaceIntegrations() {
             id="sellerId"
             value={sellerId}
             onChange={(e) => setSellerId(e.target.value)}
-            placeholder={isTestMode ? "test_seller_123" : `Enter your ${platform || 'marketplace'} Seller ID`}
+            placeholder={isTestMode && isAdmin ? "test_seller_123" : `Enter your ${platform || 'marketplace'} Seller ID`}
             required
           />
         </div>
@@ -222,7 +226,7 @@ export default function MarketplaceIntegrations() {
             id="marketplaceId"
             value={marketplaceId}
             onChange={(e) => setMarketplaceId(e.target.value)}
-            placeholder={isTestMode ? "test_marketplace_123" : `Enter your ${platform || 'marketplace'} ID`}
+            placeholder={isTestMode && isAdmin ? "test_marketplace_123" : `Enter your ${platform || 'marketplace'} ID`}
             required
           />
         </div>
@@ -258,10 +262,10 @@ export default function MarketplaceIntegrations() {
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : `Connect ${isTestMode ? '(Test Mode)' : ''}`}
+          {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
         </Button>
 
-        {isTestMode && (
+        {isTestMode && isAdmin && (
           <p className="text-sm text-muted-foreground mt-2">
             Test mode enabled. No real API calls will be made.
           </p>

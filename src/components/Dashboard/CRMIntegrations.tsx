@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 type CRMPlatform = 'salesforce' | 'hubspot' | 'zoho' | 'dynamics365' | 'pipedrive' | 'gohighlevel';
 
@@ -68,6 +70,7 @@ async function validateCredentials(
 }
 
 export default function CRMIntegrations() {
+  const { isAdmin } = useIsAdmin();
   const [isLoading, setIsLoading] = useState(false);
   const [platform, setPlatform] = useState<CRMPlatform | null>(null);
   const [apiKey, setApiKey] = useState('');
@@ -162,14 +165,16 @@ export default function CRMIntegrations() {
           </Select>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="test-mode"
-            checked={isTestMode}
-            onCheckedChange={setIsTestMode}
-          />
-          <Label htmlFor="test-mode">Test Mode</Label>
-        </div>
+        {isAdmin && (
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="test-mode"
+              checked={isTestMode}
+              onCheckedChange={setIsTestMode}
+            />
+            <Label htmlFor="test-mode">Test Mode</Label>
+          </div>
+        )}
 
         {platform && PLATFORMS_REQUIRING_URL.includes(platform) && (
           <div className="space-y-2">
@@ -192,7 +197,7 @@ export default function CRMIntegrations() {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder={isTestMode ? "test_api_key" : "Enter API key"}
+            placeholder={isTestMode && isAdmin ? "test_api_key" : "Enter API key"}
             required
           />
         </div>
@@ -204,16 +209,16 @@ export default function CRMIntegrations() {
             type="password"
             value={apiSecret}
             onChange={(e) => setApiSecret(e.target.value)}
-            placeholder={isTestMode ? "test_api_secret" : "Enter API secret"}
+            placeholder={isTestMode && isAdmin ? "test_api_secret" : "Enter API secret"}
             required
           />
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : `Connect ${isTestMode ? '(Test Mode)' : ''}`}
+          {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
         </Button>
 
-        {isTestMode && (
+        {isTestMode && isAdmin && (
           <p className="text-sm text-muted-foreground mt-2">
             Test mode enabled. No real API calls will be made.
           </p>
