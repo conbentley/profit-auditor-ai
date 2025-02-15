@@ -9,6 +9,62 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      audit_findings: {
+        Row: {
+          audit_id: string | null
+          category: string
+          created_at: string
+          description: string
+          id: string
+          metadata: Json | null
+          potential_savings: number | null
+          resolution_steps: Json | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audit_id?: string | null
+          category: string
+          created_at?: string
+          description: string
+          id?: string
+          metadata?: Json | null
+          potential_savings?: number | null
+          resolution_steps?: Json | null
+          severity: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audit_id?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          metadata?: Json | null
+          potential_savings?: number | null
+          resolution_steps?: Json | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_findings_audit_id_fkey"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "financial_audits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_history: {
         Row: {
           audit_id: string | null
@@ -32,6 +88,42 @@ export type Database = {
           id?: string
           messages?: Json
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      competitor_prices: {
+        Row: {
+          competitor_name: string
+          currency: string
+          id: string
+          last_checked: string
+          metadata: Json | null
+          price: number
+          product_id: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          competitor_name: string
+          currency: string
+          id?: string
+          last_checked?: string
+          metadata?: Json | null
+          price: number
+          product_id: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          competitor_name?: string
+          currency?: string
+          id?: string
+          last_checked?: string
+          metadata?: Json | null
+          price?: number
+          product_id?: string
+          url?: string | null
           user_id?: string
         }
         Relationships: []
@@ -74,38 +166,50 @@ export type Database = {
       }
       financial_integrations: {
         Row: {
+          api_version: string | null
+          connection_settings: Json | null
           created_at: string
           credentials: Json
           documents: Json | null
           id: string
           is_active: boolean | null
           last_sync_at: string | null
+          last_sync_status: Json | null
           metadata: Json | null
           provider: Database["public"]["Enums"]["accounting_provider"]
+          sync_frequency: unknown | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          api_version?: string | null
+          connection_settings?: Json | null
           created_at?: string
           credentials: Json
           documents?: Json | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
+          last_sync_status?: Json | null
           metadata?: Json | null
           provider: Database["public"]["Enums"]["accounting_provider"]
+          sync_frequency?: unknown | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          api_version?: string | null
+          connection_settings?: Json | null
           created_at?: string
           credentials?: Json
           documents?: Json | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
+          last_sync_status?: Json | null
           metadata?: Json | null
           provider?: Database["public"]["Enums"]["accounting_provider"]
+          sync_frequency?: unknown | null
           updated_at?: string
           user_id?: string
         }
@@ -163,6 +267,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      marketing_performance: {
+        Row: {
+          campaign_id: string | null
+          clicks: number | null
+          conversions: number | null
+          created_at: string
+          date: string
+          id: string
+          impressions: number | null
+          metadata: Json | null
+          platform: string
+          revenue: number | null
+          spend: number
+          user_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          created_at?: string
+          date: string
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          platform: string
+          revenue?: number | null
+          spend: number
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          impressions?: number | null
+          metadata?: Json | null
+          platform?: string
+          revenue?: number | null
+          spend?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
