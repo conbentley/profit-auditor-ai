@@ -55,14 +55,35 @@ serve(async (req) => {
         return acc;
       }, {} as Record<string, number>) ?? {};
 
+    // Fetch additional data for enhanced recommendations
+    const { data: marketingData } = await supabase
+      .from('marketing_performance')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('date', startDate.toISOString())
+      .lte('date', endDate.toISOString());
+
+    const { data: competitorPrices } = await supabase
+      .from('competitor_prices')
+      .select('*')
+      .eq('user_id', user_id);
+
+    const { data: products } = await supabase
+      .from('ecommerce_products')
+      .select('*')
+      .eq('user_id', user_id);
+
     const financialData = {
       revenue,
       expenses,
       profit_margin,
-      cost_breakdown
+      cost_breakdown,
+      marketing_performance: marketingData || [],
+      competitor_prices: competitorPrices || [],
+      inventory: products || []
     };
 
-    // Generate AI analysis with strict format requirements
+    // Generate AI analysis with enhanced focus areas
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -74,11 +95,32 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a financial analyst AI. Analyze the provided financial data and return ONLY a JSON object with this exact structure, no markdown or other formatting: {"summary": "string", "kpis": [{"metric": "string", "value": "string", "trend": "string"}], "recommendations": [{"title": "string", "description": "string", "impact": "string", "difficulty": "string"}]}'
+            content: `You are an advanced financial analyst AI specializing in business optimization. 
+            Focus on three key areas:
+            1. Dynamic Pricing Strategy: Analyze competitor prices and market trends
+            2. Marketing ROI Optimization: Evaluate marketing spend effectiveness
+            3. Inventory Management: Identify opportunities to optimize stock levels
+            
+            Return ONLY a JSON object with this exact structure:
+            {
+              "summary": "Executive summary of findings",
+              "kpis": [
+                {"metric": "string", "value": "string", "trend": "string"}
+              ],
+              "recommendations": [
+                {
+                  "title": "string",
+                  "description": "string",
+                  "impact": "High/Medium/Low",
+                  "difficulty": "Easy/Medium/Hard",
+                  "category": "Pricing/Marketing/Inventory"
+                }
+              ]
+            }`
           },
           {
             role: 'user',
-            content: `Analyze these financial metrics and provide insights: ${JSON.stringify(financialData)}`
+            content: `Analyze these business metrics and provide specific recommendations: ${JSON.stringify(financialData)}`
           }
         ]
       }),
