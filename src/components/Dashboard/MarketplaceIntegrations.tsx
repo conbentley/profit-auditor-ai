@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-type MarketplacePlatform = 'amazon' | 'ebay';
+type MarketplacePlatform = 'amazon' | 'ebay' | 'etsy';
 
 const REGIONS = {
   amazon: [
@@ -29,6 +29,9 @@ const REGIONS = {
     { value: 'uk', label: 'United Kingdom' },
     { value: 'de', label: 'Germany' },
     { value: 'au', label: 'Australia' },
+  ],
+  etsy: [
+    { value: 'global', label: 'Global' }, // Etsy operates globally with a single marketplace
   ],
 };
 
@@ -61,7 +64,11 @@ export default function MarketplaceIntegrations() {
         .from('ecommerce_integrations')
         .insert({
           platform,
-          store_url: platform === 'amazon' ? 'amazon.com' : 'ebay.com',
+          store_url: platform === 'amazon' 
+            ? 'amazon.com' 
+            : platform === 'ebay' 
+              ? 'ebay.com' 
+              : 'etsy.com',
           store_name: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Store`,
           credentials: {},
           user_id: user.id,
@@ -117,6 +124,7 @@ export default function MarketplaceIntegrations() {
             <SelectContent>
               <SelectItem value="amazon">Amazon</SelectItem>
               <SelectItem value="ebay">eBay</SelectItem>
+              <SelectItem value="etsy">Etsy</SelectItem>
             </SelectContent>
           </Select>
         </div>

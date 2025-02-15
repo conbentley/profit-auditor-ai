@@ -829,6 +829,7 @@ export type Database = {
         | "prestashop"
         | "amazon"
         | "ebay"
+        | "etsy"
       explanation_detail: "basic" | "intermediate" | "advanced"
       notification_frequency: "instant" | "daily" | "weekly"
       theme_preference: "light" | "dark" | "system"
