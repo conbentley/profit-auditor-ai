@@ -11,10 +11,44 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 type EcommercePlatform = 'shopify' | 'woocommerce' | 'magento' | 'bigcommerce' | 'prestashop';
+
+async function validateEcommerceCredentials(
+  platform: EcommercePlatform,
+  credentials: {
+    api_key: string;
+    api_secret: string;
+  },
+  storeUrl: string,
+  isTestMode: boolean
+): Promise<boolean> {
+  if (isTestMode) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  }
+
+  try {
+    // Implement real validation for each platform
+    switch (platform) {
+      case 'shopify':
+        // TODO: Implement Shopify validation
+        return true;
+      case 'woocommerce':
+        // TODO: Implement WooCommerce validation
+        return true;
+      default:
+        console.warn(`No validation implemented for ${platform}`);
+        return true;
+    }
+  } catch (error) {
+    console.error(`Error validating ${platform} credentials:`, error);
+    return false;
+  }
+}
 
 export default function EcommerceIntegrations() {
   const [isLoading, setIsLoading] = useState(false);
@@ -23,6 +57,7 @@ export default function EcommerceIntegrations() {
   const [storeName, setStoreName] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
+  const [isTestMode, setIsTestMode] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,20 +73,35 @@ export default function EcommerceIntegrations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const credentials = {
+        api_key: apiKey,
+        api_secret: apiSecret,
+      };
+
+      const isValid = await validateEcommerceCredentials(
+        platform,
+        credentials,
+        storeUrl,
+        isTestMode
+      );
+      
+      if (!isValid) {
+        toast.error("Invalid credentials. Please check your API key and secret.");
+        return;
+      }
+
       const { error } = await supabase.from('ecommerce_integrations').insert({
         platform,
         store_url: storeUrl,
         store_name: storeName,
-        credentials: {
-          api_key: apiKey,
-          api_secret: apiSecret,
-        },
+        credentials,
         user_id: user.id,
+        metadata: { is_test_mode: isTestMode }
       });
 
       if (error) throw error;
 
-      toast.success(`Successfully connected to ${platform}`);
+      toast.success(`Successfully connected to ${platform}${isTestMode ? ' (Test Mode)' : ''}`);
       setPlatform(null);
       setStoreUrl('');
       setStoreName('');
@@ -88,13 +138,22 @@ export default function EcommerceIntegrations() {
           </Select>
         </div>
 
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="test-mode"
+            checked={isTestMode}
+            onCheckedChange={setIsTestMode}
+          />
+          <Label htmlFor="test-mode">Test Mode</Label>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="storeName">Store Name</Label>
           <Input
             id="storeName"
             value={storeName}
             onChange={(e) => setStoreName(e.target.value)}
-            placeholder="Enter store name"
+            placeholder={isTestMode ? "Test Store" : "Enter store name"}
             required
           />
         </div>
@@ -106,7 +165,7 @@ export default function EcommerceIntegrations() {
             type="url"
             value={storeUrl}
             onChange={(e) => setStoreUrl(e.target.value)}
-            placeholder="https://your-store.com"
+            placeholder={isTestMode ? "https://test-store.com" : "https://your-store.com"}
             required
           />
         </div>
@@ -118,7 +177,7 @@ export default function EcommerceIntegrations() {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter API key"
+            placeholder={isTestMode ? "test_api_key" : "Enter API key"}
             required
           />
         </div>
@@ -130,14 +189,20 @@ export default function EcommerceIntegrations() {
             type="password"
             value={apiSecret}
             onChange={(e) => setApiSecret(e.target.value)}
-            placeholder="Enter API secret"
+            placeholder={isTestMode ? "test_api_secret" : "Enter API secret"}
             required
           />
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : "Connect Integration"}
+          {isLoading ? "Connecting..." : `Connect ${isTestMode ? '(Test Mode)' : ''}`}
         </Button>
+
+        {isTestMode && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Test mode enabled. No real API calls will be made.
+          </p>
+        )}
       </form>
     </Card>
   );

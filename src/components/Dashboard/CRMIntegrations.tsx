@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,14 +89,11 @@ export default function CRMIntegrations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const credentials: Record<string, string> = {
+      const credentials = {
         api_key: apiKey,
         api_secret: apiSecret,
+        ...(PLATFORMS_REQUIRING_URL.includes(platform) ? { instance_url: instanceUrl } : {})
       };
-
-      if (PLATFORMS_REQUIRING_URL.includes(platform)) {
-        credentials.instance_url = instanceUrl;
-      }
 
       // Validate credentials before saving
       const isValid = await validateCredentials(platform, credentials, isTestMode);

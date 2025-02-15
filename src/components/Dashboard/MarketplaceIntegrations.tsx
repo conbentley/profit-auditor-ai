@@ -35,6 +35,40 @@ const REGIONS = {
   ],
 };
 
+async function validateMarketplaceCredentials(
+  platform: MarketplacePlatform,
+  sellerId: string,
+  marketplaceId: string,
+  region: string,
+  isTestMode: boolean
+): Promise<boolean> {
+  if (isTestMode) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  }
+
+  try {
+    // Implement real validation for each platform
+    switch (platform) {
+      case 'amazon':
+        // TODO: Implement Amazon validation
+        return true;
+      case 'ebay':
+        // TODO: Implement eBay validation
+        return true;
+      case 'etsy':
+        // TODO: Implement Etsy validation
+        return true;
+      default:
+        console.warn(`No validation implemented for ${platform}`);
+        return true;
+    }
+  } catch (error) {
+    console.error(`Error validating ${platform} credentials:`, error);
+    return false;
+  }
+}
+
 export default function MarketplaceIntegrations() {
   const [isLoading, setIsLoading] = useState(false);
   const [platform, setPlatform] = useState<MarketplacePlatform | null>(null);
@@ -44,6 +78,7 @@ export default function MarketplaceIntegrations() {
   const [syncInventory, setSyncInventory] = useState(true);
   const [syncPricing, setSyncPricing] = useState(true);
   const [syncOrders, setSyncOrders] = useState(true);
+  const [isTestMode, setIsTestMode] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +94,19 @@ export default function MarketplaceIntegrations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const isValid = await validateMarketplaceCredentials(
+        platform,
+        sellerId,
+        marketplaceId,
+        region,
+        isTestMode
+      );
+      
+      if (!isValid) {
+        toast.error("Invalid credentials. Please check your seller ID and marketplace ID.");
+        return;
+      }
+
       // First create the ecommerce integration
       const { data: integration, error: integrationError } = await supabase
         .from('ecommerce_integrations')
@@ -72,6 +120,7 @@ export default function MarketplaceIntegrations() {
           store_name: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Store`,
           credentials: {},
           user_id: user.id,
+          metadata: { is_test_mode: isTestMode }
         })
         .select()
         .single();
@@ -95,7 +144,7 @@ export default function MarketplaceIntegrations() {
 
       if (settingsError) throw settingsError;
 
-      toast.success(`Successfully connected to ${platform}`);
+      toast.success(`Successfully connected to ${platform}${isTestMode ? ' (Test Mode)' : ''}`);
       setPlatform(null);
       setRegion('');
       setSellerId('');
@@ -129,6 +178,15 @@ export default function MarketplaceIntegrations() {
           </Select>
         </div>
 
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="test-mode"
+            checked={isTestMode}
+            onCheckedChange={setIsTestMode}
+          />
+          <Label htmlFor="test-mode">Test Mode</Label>
+        </div>
+
         {platform && (
           <div className="space-y-2">
             <Label htmlFor="region">Region</Label>
@@ -153,7 +211,7 @@ export default function MarketplaceIntegrations() {
             id="sellerId"
             value={sellerId}
             onChange={(e) => setSellerId(e.target.value)}
-            placeholder={`Enter your ${platform || 'marketplace'} Seller ID`}
+            placeholder={isTestMode ? "test_seller_123" : `Enter your ${platform || 'marketplace'} Seller ID`}
             required
           />
         </div>
@@ -164,7 +222,7 @@ export default function MarketplaceIntegrations() {
             id="marketplaceId"
             value={marketplaceId}
             onChange={(e) => setMarketplaceId(e.target.value)}
-            placeholder={`Enter your ${platform || 'marketplace'} ID`}
+            placeholder={isTestMode ? "test_marketplace_123" : `Enter your ${platform || 'marketplace'} ID`}
             required
           />
         </div>
@@ -200,8 +258,14 @@ export default function MarketplaceIntegrations() {
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : "Connect Integration"}
+          {isLoading ? "Connecting..." : `Connect ${isTestMode ? '(Test Mode)' : ''}`}
         </Button>
+
+        {isTestMode && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Test mode enabled. No real API calls will be made.
+          </p>
+        )}
       </form>
     </Card>
   );

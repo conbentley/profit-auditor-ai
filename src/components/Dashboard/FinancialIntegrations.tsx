@@ -11,15 +11,52 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AccountingProvider } from "@/types/financial";
+
+async function validateFinancialCredentials(
+  provider: AccountingProvider,
+  credentials: {
+    api_key: string;
+    api_secret: string;
+  },
+  isTestMode: boolean
+): Promise<boolean> {
+  if (isTestMode) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  }
+
+  try {
+    // Implement real validation for each provider
+    switch (provider) {
+      case "xero":
+        // TODO: Implement Xero validation
+        return true;
+      case "quickbooks":
+        // TODO: Implement QuickBooks validation
+        return true;
+      case "sage":
+        // TODO: Implement Sage validation
+        return true;
+      default:
+        console.warn(`No validation implemented for ${provider}`);
+        return true;
+    }
+  } catch (error) {
+    console.error(`Error validating ${provider} credentials:`, error);
+    return false;
+  }
+}
 
 export default function FinancialIntegrations() {
   const [isLoading, setIsLoading] = useState(false);
   const [provider, setProvider] = useState<AccountingProvider | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
+  const [isTestMode, setIsTestMode] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,18 +72,28 @@ export default function FinancialIntegrations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const credentials = {
+        api_key: apiKey,
+        api_secret: apiSecret,
+      };
+
+      const isValid = await validateFinancialCredentials(provider, credentials, isTestMode);
+      
+      if (!isValid) {
+        toast.error("Invalid credentials. Please check your API key and secret.");
+        return;
+      }
+
       const { error } = await supabase.from('financial_integrations').insert({
         provider,
-        credentials: {
-          api_key: apiKey,
-          api_secret: apiSecret,
-        },
+        credentials,
         user_id: user.id,
+        metadata: { is_test_mode: isTestMode }
       });
 
       if (error) throw error;
 
-      toast.success(`Successfully connected to ${provider}`);
+      toast.success(`Successfully connected to ${provider}${isTestMode ? ' (Test Mode)' : ''}`);
       setProvider(null);
       setApiKey('');
       setApiSecret('');
@@ -79,6 +126,15 @@ export default function FinancialIntegrations() {
           </Select>
         </div>
 
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="test-mode"
+            checked={isTestMode}
+            onCheckedChange={setIsTestMode}
+          />
+          <Label htmlFor="test-mode">Test Mode</Label>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="apiKey">API Key</Label>
           <Input
@@ -86,7 +142,7 @@ export default function FinancialIntegrations() {
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter API key"
+            placeholder={isTestMode ? "test_api_key" : "Enter API key"}
             required
           />
         </div>
@@ -98,14 +154,20 @@ export default function FinancialIntegrations() {
             type="password"
             value={apiSecret}
             onChange={(e) => setApiSecret(e.target.value)}
-            placeholder="Enter API secret"
+            placeholder={isTestMode ? "test_api_secret" : "Enter API secret"}
             required
           />
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : "Connect Integration"}
+          {isLoading ? "Connecting..." : `Connect ${isTestMode ? '(Test Mode)' : ''}`}
         </Button>
+
+        {isTestMode && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Test mode enabled. No real API calls will be made.
+          </p>
+        )}
       </form>
     </Card>
   );
