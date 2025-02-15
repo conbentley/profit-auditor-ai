@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Json } from "@/integrations/supabase/types";
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -19,9 +20,25 @@ interface ChatMessage {
 interface ChatHistory {
   id: string;
   messages: ChatMessage[];
-  audit_id?: string;
+  audit_id?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// Type guard to validate ChatMessage structure
+function isChatMessage(message: any): message is ChatMessage {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    (message.role === 'user' || message.role === 'assistant') &&
+    typeof message.content === 'string'
+  );
+}
+
+// Converts raw JSON messages to typed ChatMessage array
+function parseMessages(messages: Json): ChatMessage[] {
+  if (!Array.isArray(messages)) return [];
+  return messages.filter(isChatMessage);
 }
 
 export default function AIProfitChat() {
@@ -46,7 +63,13 @@ export default function AIProfitChat() {
         .maybeSingle();
 
       if (error) throw error;
-      return data as ChatHistory | null;
+      
+      if (!data) return null;
+      
+      return {
+        ...data,
+        messages: parseMessages(data.messages)
+      } as ChatHistory;
     }
   });
 
@@ -60,7 +83,9 @@ export default function AIProfitChat() {
         // Update existing chat
         const { error } = await supabase
           .from('chat_history')
-          .update({ messages })
+          .update({ 
+            messages: messages as Json
+          })
           .eq('id', chatHistory.id);
 
         if (error) throw error;
@@ -70,7 +95,7 @@ export default function AIProfitChat() {
           .from('chat_history')
           .insert({
             user_id: user.id,
-            messages
+            messages: messages as Json
           });
 
         if (error) throw error;
@@ -90,7 +115,7 @@ export default function AIProfitChat() {
 
     const newMessages = [
       ...(chatHistory?.messages || []),
-      { role: 'user', content: userMessage }
+      { role: 'user' as const, content: userMessage }
     ];
 
     try {
@@ -115,7 +140,7 @@ export default function AIProfitChat() {
       // Update messages with AI response
       const updatedMessages = [
         ...newMessages,
-        { role: 'assistant', content: response.data.response }
+        { role: 'assistant' as const, content: response.data.response }
       ];
 
       await updateChat.mutateAsync(updatedMessages);
