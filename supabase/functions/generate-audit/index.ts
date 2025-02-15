@@ -78,21 +78,7 @@ serve(async (req) => {
       cost_breakdown
     };
 
-    // Fetch competitor prices for comparison
-    const { data: competitorPrices } = await supabase
-      .from('competitor_prices')
-      .select('*')
-      .eq('user_id', user_id);
-
-    // Fetch marketing performance data
-    const { data: marketingData } = await supabase
-      .from('marketing_performance')
-      .select('*')
-      .eq('user_id', user_id)
-      .gte('date', startDate.toISOString())
-      .lte('date', endDate.toISOString());
-
-    // Generate AI analysis with enhanced context
+    // Generate AI analysis
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -100,55 +86,18 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',
         messages: [
           {
             role: 'system',
-            content: `You are an expert financial analyst AI that identifies profit leaks and provides actionable recommendations. 
-            Focus on these key areas:
-            1. Subscription optimization
-            2. Pricing strategy vs competitors
-            3. Tax efficiency
-            4. Marketing ROI
-            5. Inventory management
-            
-            For each finding, provide specific, quantified savings estimates and clear step-by-step resolution steps.`
+            content: 'You are a financial analyst AI. Analyze the financial data and provide insights in JSON format.'
           },
           {
             role: 'user',
-            content: `Analyze these financial metrics and provide detailed insights:
-              Financial Data: ${JSON.stringify(financialData)}
-              Competitor Prices: ${JSON.stringify(competitorPrices)}
-              Marketing Performance: ${JSON.stringify(marketingData)}
-              
-              Provide a comprehensive analysis including:
-              1. Key performance indicators and their trends
-              2. Specific profit leaks identified
-              3. Prioritized recommendations with estimated savings
-              4. Industry benchmarking insights
-              
-              Format the response as JSON with these keys:
-              {
-                summary: string,
-                kpis: [{ metric: string, value: string, trend: string }],
-                findings: [{ 
-                  category: string,
-                  severity: string,
-                  title: string,
-                  description: string,
-                  potential_savings: number,
-                  resolution_steps: object
-                }],
-                recommendations: [{ 
-                  title: string,
-                  description: string,
-                  impact: string,
-                  difficulty: string,
-                  estimated_savings: number
-                }]
-              }`
+            content: JSON.stringify(financialData)
           }
         ],
+        response_format: { type: "json_object" }
       }),
     });
 
@@ -166,7 +115,7 @@ serve(async (req) => {
         recommendations: analysis.recommendations,
         analysis_metadata: {
           data_source: 'transactions',
-          ai_model: 'gpt-4o-mini',
+          ai_model: 'gpt-4',
           timestamp: new Date().toISOString(),
           metrics: financialData
         }
@@ -198,17 +147,28 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify(analysis),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: true, audit: audit }),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json'
+        } 
+      }
     );
 
   } catch (error) {
     console.error('Error generating audit:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        success: false 
+      }),
       { 
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json'
+        }
       }
     );
   }
