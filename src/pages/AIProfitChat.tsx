@@ -25,27 +25,31 @@ interface ChatHistory {
   updated_at: string;
 }
 
-// Type guard to validate ChatMessage structure
-function isChatMessage(message: any): message is ChatMessage {
-  return (
-    typeof message === 'object' &&
-    message !== null &&
-    (message.role === 'user' || message.role === 'assistant') &&
-    typeof message.content === 'string'
-  );
-}
-
-// Converts raw JSON messages to typed ChatMessage array
-function parseMessages(messages: Json): ChatMessage[] {
-  if (!Array.isArray(messages)) return [];
-  return messages.filter((msg): msg is ChatMessage => {
-    if (typeof msg !== 'object' || msg === null) return false;
-    const typedMsg = msg as Record<string, unknown>;
-    return (
-      (typedMsg.role === 'user' || typedMsg.role === 'assistant') &&
-      typeof typedMsg.content === 'string'
-    );
-  });
+// Safely converts raw JSON data into ChatMessage array
+function parseMessages(rawMessages: Json): ChatMessage[] {
+  if (!Array.isArray(rawMessages)) return [];
+  
+  return rawMessages.reduce<ChatMessage[]>((acc, msg) => {
+    // Skip if msg is not an object
+    if (typeof msg !== 'object' || msg === null) return acc;
+    
+    const messageObj = msg as Record<string, unknown>;
+    const role = messageObj.role;
+    const content = messageObj.content;
+    
+    // Only add message if it has valid role and content
+    if (
+      (role === 'user' || role === 'assistant') &&
+      typeof content === 'string'
+    ) {
+      acc.push({
+        role: role as 'user' | 'assistant',
+        content
+      });
+    }
+    
+    return acc;
+  }, []);
 }
 
 export default function AIProfitChat() {
