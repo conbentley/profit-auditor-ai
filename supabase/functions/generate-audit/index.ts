@@ -25,8 +25,15 @@ serve(async (req) => {
   }
 
   try {
+    // Validate OpenAI API key
+    if (!openAIApiKey) {
+      throw new Error("OpenAI API key is not configured");
+    }
+
     const reqBody = await req.text();
     const { user_id, month, year } = JSON.parse(reqBody);
+
+    console.log(`Generating audit for user ${user_id} for ${month}/${year}`);
 
     // Fetch financial data from transactions
     const startDate = new Date(year, month - 1, 1);
@@ -39,27 +46,47 @@ serve(async (req) => {
       .gte('transaction_date', startDate.toISOString())
       .lte('transaction_date', endDate.toISOString());
 
-    if (transactionsError) throw transactionsError;
+    if (transactionsError) {
+      console.error('Transaction fetch error:', transactionsError);
+      throw transactionsError;
+    }
+
+    if (!transactions || transactions.length === 0) {
+      console.log('No transactions found for the period');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "No financial transactions found for the selected period"
+        }),
+        {
+          status: 404,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
 
     // Calculate financial metrics
     const revenue = transactions
-      ?.filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const expenses = transactions
-      ?.filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
 
     const profit_margin = revenue > 0 ? ((revenue - expenses) / revenue) * 100 : 0;
 
     // Calculate cost breakdown by category
     const cost_breakdown = transactions
-      ?.filter(t => t.type === 'expense')
+      .filter(t => t.type === 'expense')
       .reduce((acc, t) => {
         const category = t.category || 'Uncategorized';
         acc[category] = (acc[category] || 0) + Number(t.amount);
         return acc;
-      }, {} as Record<string, number>) ?? {};
+      }, {} as Record<string, number>);
 
     const financialData = {
       revenue,
@@ -68,7 +95,10 @@ serve(async (req) => {
       cost_breakdown
     };
 
+    console.log('Calculated financial metrics:', financialData);
+
     // Generate AI analysis
+    console.log('Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -76,7 +106,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini', // Using the correct model as per instructions
         messages: [
           {
             role: 'system',
@@ -92,13 +122,16 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      console.error('OpenAI API error:', response.status, await response.text());
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const aiResponse = await response.json();
+    console.log('Received OpenAI response');
     const analysis = JSON.parse(aiResponse.choices[0].message.content);
 
     // Store audit results
+    console.log('Storing audit results...');
     const { data: audit, error: insertError } = await supabase
       .from('financial_audits')
       .insert({
@@ -109,7 +142,7 @@ serve(async (req) => {
         recommendations: analysis.recommendations,
         analysis_metadata: {
           data_source: 'transactions',
-          ai_model: 'gpt-4',
+          ai_model: 'gpt-4o-mini',
           timestamp: new Date().toISOString(),
           metrics: financialData
         }
@@ -117,8 +150,12 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      throw insertError;
+    }
 
+    console.log('Audit generation completed successfully');
     return new Response(
       JSON.stringify({ 
         success: true, 
