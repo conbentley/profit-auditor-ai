@@ -10,12 +10,18 @@ import { ChatMessage } from "@/components/Chat/ChatMessage";
 import { ChatInput } from "@/components/Chat/ChatInput";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Index = () => {
   const { data: metricsData, isLoading } = useDashboardMetrics();
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [query, setQuery] = useState('');
   const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [isGeneratingAudit, setIsGeneratingAudit] = useState(false);
+  const queryClient = useQueryClient();
 
   const metrics = metricsData?.metrics ?? {
     revenue: 0,
@@ -29,6 +35,33 @@ const Index = () => {
     profit_margin: 0,
     expense_ratio: 0,
     audit_alerts: 0
+  };
+
+  const handleGenerateAudit = async () => {
+    try {
+      setIsGeneratingAudit(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const today = new Date();
+      const { error } = await supabase.functions.invoke('generate-audit', {
+        body: {
+          user_id: user.id,
+          month: today.getMonth() + 1,
+          year: today.getFullYear()
+        },
+      });
+
+      if (error) throw error;
+
+      await queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
+      toast.success('New audit report generated successfully');
+    } catch (error) {
+      console.error('Error generating audit:', error);
+      toast.error('Failed to generate audit report');
+    } finally {
+      setIsGeneratingAudit(false);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -104,7 +137,17 @@ const Index = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="p-6">
               <div className="space-y-4">
-                <h2 className="text-lg font-semibold">AI Profit Chat</h2>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-semibold">AI Profit Chat</h2>
+                  <Button 
+                    onClick={handleGenerateAudit}
+                    disabled={isGeneratingAudit}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {isGeneratingAudit ? 'Generating...' : 'Generate New Audit'}
+                  </Button>
+                </div>
                 <div className="h-[400px] overflow-y-auto space-y-4 mb-4">
                   {messages.map((message, index) => (
                     <ChatMessage key={index} role={message.role}>
