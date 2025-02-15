@@ -29,6 +29,22 @@ export default function SecuritySettings() {
   const [verificationCode, setVerificationCode] = useState("");
   const [challengeId, setChallengeId] = useState<string | null>(null);
 
+  const logSecurityEvent = async (
+    eventType: 'mfa_enabled' | 'mfa_disabled' | 'data_exported',
+    metadata: Record<string, any> = {}
+  ) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.rpc('log_audit_event', {
+      p_user_id: user.id,
+      p_event_type: eventType,
+      p_metadata: metadata,
+      p_ip_address: null, // Could be obtained from a request if needed
+      p_user_agent: navigator.userAgent
+    });
+  };
+
   const handleMfaToggle = async () => {
     try {
       if (!isMfaEnabled) {
@@ -58,6 +74,8 @@ export default function SecuritySettings() {
         await updateSettings({
           two_factor_enabled: false
         });
+
+        await logSecurityEvent('mfa_disabled');
         
         setIsMfaEnabled(false);
         toast.success('Two-factor authentication disabled');
@@ -95,6 +113,8 @@ export default function SecuritySettings() {
         two_factor_enabled: true
       });
 
+      await logSecurityEvent('mfa_enabled');
+
       setIsMfaEnabled(true);
       setShowMfaDialog(false);
       setMfaSecret(null);
@@ -111,7 +131,6 @@ export default function SecuritySettings() {
     try {
       setIsExportingData(true);
       
-      // Fetch user's data from all relevant tables
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
@@ -127,7 +146,6 @@ export default function SecuritySettings() {
         supabase.from('financial_integrations').select('*').eq('user_id', user.id)
       ]);
 
-      // Prepare export data
       const exportData = {
         transactions,
         audits,
@@ -137,7 +155,6 @@ export default function SecuritySettings() {
         userId: user.id
       };
 
-      // Create and download export file
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -147,6 +164,11 @@ export default function SecuritySettings() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+
+      await logSecurityEvent('data_exported', {
+        exportTime: new Date().toISOString(),
+        dataTypes: ['transactions', 'audits', 'chatHistory', 'integrations']
+      });
 
       toast.success('Data exported successfully');
     } catch (error) {
