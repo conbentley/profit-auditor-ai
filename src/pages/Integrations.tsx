@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FinancialIntegrations from "@/components/Dashboard/FinancialIntegrations";
 import EcommerceIntegrations from "@/components/Dashboard/EcommerceIntegrations";
 import MarketplaceIntegrations from "@/components/Dashboard/MarketplaceIntegrations";
+import CRMIntegrations from "@/components/Dashboard/CRMIntegrations";
 
 export default function Integrations() {
   return (
@@ -21,6 +22,7 @@ export default function Integrations() {
                 <TabsTrigger value="financial">Financial</TabsTrigger>
                 <TabsTrigger value="ecommerce">E-commerce</TabsTrigger>
                 <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+                <TabsTrigger value="crm">CRM</TabsTrigger>
               </TabsList>
               
               <TabsContent value="financial">
@@ -33,6 +35,10 @@ export default function Integrations() {
 
               <TabsContent value="marketplace">
                 <MarketplaceIntegrations />
+              </TabsContent>
+
+              <TabsContent value="crm">
+                <CRMIntegrations />
               </TabsContent>
             </Tabs>
           </Card>
