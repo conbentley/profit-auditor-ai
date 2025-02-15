@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,7 +31,10 @@ import { useUserSettings } from "@/hooks/useUserSettings";
 
 const formSchema = z.object({
   // Profile Settings
-  avatar_url: z.string().optional(),
+  full_name: z.string().min(2, "Name must be at least 2 characters"),
+  company_name: z.string().optional(),
+  email: z.string().email("Please enter a valid email address"),
+  phone_number: z.string().optional(),
   
   // Financial Integration Settings
   data_refresh_interval: z.string(),
@@ -136,21 +138,82 @@ export default function Settings() {
 
                 <TabsContent value="profile">
                   <Card className="p-8">
-                    <FormField
-                      control={form.control}
-                      name="avatar_url"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel>Profile Picture URL</FormLabel>
-                          <FormControl>
-                            <Input {...field} value={field.value || ''} />
-                          </FormControl>
-                          <FormDescription>
-                            Enter the URL of your profile picture
-                          </FormDescription>
-                        </FormItem>
-                      )}
-                    />
+                    <div className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="full_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Full Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter your full name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email Address</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="email" 
+                                placeholder="Enter your email address" 
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="company_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company Name</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter your company name (optional)" 
+                                {...field} 
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              The name of your company or organization
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="phone_number"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Contact Number</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="tel" 
+                                placeholder="Enter your contact number (optional)" 
+                                {...field}
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Your preferred contact number
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </Card>
                 </TabsContent>
 
