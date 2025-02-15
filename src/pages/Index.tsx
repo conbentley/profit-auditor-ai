@@ -44,18 +44,16 @@ const Index = () => {
       if (!user) throw new Error("Not authenticated");
 
       const today = new Date();
-      const response = await fetch('/api/generate-audit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('generate-audit', {
+        body: {
           user_id: user.id,
           month: today.getMonth() + 1,
           year: today.getFullYear()
-        }),
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate audit');
+      if (error) {
+        throw error;
       }
 
       await queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
