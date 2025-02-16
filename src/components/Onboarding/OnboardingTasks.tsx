@@ -15,10 +15,10 @@ interface Task {
   isCompleted: boolean;
 }
 
-type OnboardingData = {
-  user_id: string;
-  completed_tasks: string[];
-  is_completed: boolean;
+interface Profile {
+  id: string;
+  completed_onboarding_tasks: string[];
+  is_onboarded: boolean;
 }
 
 export default function OnboardingTasks() {
@@ -62,10 +62,11 @@ export default function OnboardingTasks() {
 
         if (error) throw error;
 
-        if (data) {
+        const profile = data as Profile;
+        if (profile) {
           setTasks(prev => prev.map(task => ({
             ...task,
-            isCompleted: data.completed_onboarding_tasks?.includes(task.id) ?? false
+            isCompleted: profile.completed_onboarding_tasks?.includes(task.id) ?? false
           })));
         }
       } catch (error) {
@@ -85,7 +86,7 @@ export default function OnboardingTasks() {
       if (!user) return;
 
       // Get current tasks
-      const { data: currentData, error: fetchError } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('profiles')
         .select('completed_onboarding_tasks')
         .eq('id', user.id)
@@ -93,9 +94,10 @@ export default function OnboardingTasks() {
 
       if (fetchError) throw fetchError;
 
+      const profile = data as Profile;
       // Update tasks array
       const updatedTasks = Array.from(new Set([
-        ...(currentData?.completed_onboarding_tasks || []),
+        ...(profile.completed_onboarding_tasks || []),
         taskId
       ]));
 
