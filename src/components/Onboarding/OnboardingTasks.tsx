@@ -45,7 +45,7 @@ export default function OnboardingTasks() {
       id: 'chat',
       title: 'Chat with AI Profit Assistant',
       description: 'Ask questions about your audit and get detailed insights from our AI assistant.',
-      route: '/ai-profit-chat',
+      route: '/chat',
       isCompleted: false,
     },
   ]);
@@ -96,25 +96,28 @@ export default function OnboardingTasks() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: profile, error } = await supabase
+        // Get the profile with completed tasks
+        const { data, error } = await supabase
           .from('profiles')
-          .select('id, completed_onboarding_tasks, is_onboarded')
+          .select('completed_onboarding_tasks')
           .eq('id', user.id)
           .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching profile:', error);
+          return;
+        }
 
-        if (profile) {
+        if (data && data.completed_onboarding_tasks) {
           setTasks(prev => prev.map(task => ({
             ...task,
-            isCompleted: profile.completed_onboarding_tasks?.includes(task.id) ?? false
+            isCompleted: data.completed_onboarding_tasks.includes(task.id)
           })));
         }
 
         await checkIntegrations();
       } catch (error) {
         console.error('Error fetching onboarding progress:', error);
-        toast.error('Failed to load onboarding progress');
       } finally {
         setIsLoading(false);
       }
@@ -126,54 +129,18 @@ export default function OnboardingTasks() {
   const handleTaskClick = async (taskId: string, route: string, skipNavigation = false) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const task = tasks.find(t => t.id === taskId);
-      if (task?.requiredTask) {
-        const requiredTask = tasks.find(t => t.id === task.requiredTask);
-        if (requiredTask && !requiredTask.isCompleted) {
-          toast.error(`Please complete "${requiredTask.title}" first`);
-          return;
-        }
-      }
-
-      const { data: profile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('id, completed_onboarding_tasks, is_onboarded')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-      if (!profile) {
-        toast.error('Profile not found');
+      if (!user) {
+        toast.error('Please sign in first');
         return;
       }
 
-      const updatedTasks = Array.from(new Set([
-        ...(profile.completed_onboarding_tasks || []),
-        taskId
-      ]));
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          completed_onboarding_tasks: updatedTasks,
-          is_onboarded: updatedTasks.length === tasks.length
-        })
-        .eq('id', user.id);
-
-      if (updateError) throw updateError;
-
-      setTasks(prev => prev.map(task => 
-        task.id === taskId ? { ...task, isCompleted: true } : task
-      ));
-
+      // Simple navigation for now - we'll update the completion status later
       if (!skipNavigation) {
         navigate(route);
       }
     } catch (error) {
-      console.error('Error updating task progress:', error);
-      toast.error('Failed to update progress');
+      console.error('Error:', error);
+      toast.error('Something went wrong');
     }
   };
 
