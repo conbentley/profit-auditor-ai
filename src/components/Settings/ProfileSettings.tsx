@@ -3,7 +3,7 @@ import { useUserSettings } from "@/hooks/useUserSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 
 const ProfileSettings = () => {
@@ -19,8 +19,8 @@ const ProfileSettings = () => {
     country: ''
   });
 
-  // Update form when settings are loaded
-  useState(() => {
+  // Update form when settings are loaded - fixed by using useEffect instead of useState
+  useEffect(() => {
     if (settings) {
       setFormData({
         full_name: settings.full_name || '',
