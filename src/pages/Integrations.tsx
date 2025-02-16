@@ -8,55 +8,13 @@ import EcommerceIntegrations from "@/components/Dashboard/EcommerceIntegrations"
 import MarketplaceIntegrations from "@/components/Dashboard/MarketplaceIntegrations";
 import CRMIntegrations from "@/components/Dashboard/CRMIntegrations";
 import PaymentIntegrations from "@/components/Dashboard/PaymentIntegrations";
-import OnboardingTasks from "@/components/Onboarding/OnboardingTasks";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function Integrations() {
-  const [showOnboarding, setShowOnboarding] = useState(true);
-
-  useEffect(() => {
-    async function checkOnboardingStatus() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setShowOnboarding(true);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('is_onboarded')
-          .eq('id', user.id)
-          .single();
-
-        if (error) {
-          console.error('Error checking onboarding status:', error);
-          setShowOnboarding(true);
-          return;
-        }
-
-        // If data is null or is_onboarded is false/null, show onboarding
-        setShowOnboarding(!data?.is_onboarded);
-      } catch (error) {
-        console.error('Error checking onboarding status:', error);
-        setShowOnboarding(true);
-      }
-    }
-
-    checkOnboardingStatus();
-  }, []);
-
   return <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1">
         <Header />
         <main className="p-6">
-          {showOnboarding && (
-            <div className="mb-6">
-              <OnboardingTasks />
-            </div>
-          )}
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-2">Integrations</h2>
             <p className="text-gray-600 text-sm mb-6">Connect your financial, e-commerce, marketplace, payment, and CRM providers for comprehensive profit audits.</p>
