@@ -1,81 +1,35 @@
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { Toaster } from "sonner";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
-import Analytics from "./pages/Analytics";
-import AuditHistory from "./pages/AuditHistory";
-import Settings from "./pages/Settings";
-import AIProfitChat from "./pages/AIProfitChat";
-import Integrations from "./pages/Integrations";
-import { useEffect, useState } from "react";
-import { supabase } from "./integrations/supabase/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-// Create a client
-const queryClient = new QueryClient();
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/react-query";
+import { Toaster } from "@/components/ui/sonner";
+import Index from "@/pages/Index";
+import Auth from "@/pages/Auth";
+import Settings from "@/pages/Settings";
+import Analytics from "@/pages/Analytics";
+import AuditHistory from "@/pages/AuditHistory";
+import AIProfitChat from "@/pages/AIProfitChat";
+import Integrations from "@/pages/Integrations";
+import NotFound from "@/pages/NotFound";
+import Landing from "@/pages/Landing";
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    // Check initial auth state
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // Show loading state while checking auth
-  if (isAuthenticated === null) {
-    return null;
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
         <Routes>
-          <Route
-            path="/"
-            element={isAuthenticated ? <Index /> : <Navigate to="/auth" />}
-          />
-          <Route
-            path="/analytics"
-            element={isAuthenticated ? <Analytics /> : <Navigate to="/auth" />}
-          />
-          <Route
-            path="/chat"
-            element={isAuthenticated ? <AIProfitChat /> : <Navigate to="/auth" />}
-          />
-          <Route
-            path="/history"
-            element={isAuthenticated ? <AuditHistory /> : <Navigate to="/auth" />}
-          />
-          <Route
-            path="/settings"
-            element={isAuthenticated ? <Settings /> : <Navigate to="/auth" />}
-          />
-          <Route
-            path="/integrations"
-            element={isAuthenticated ? <Integrations /> : <Navigate to="/auth" />}
-          />
-          <Route
-            path="/auth"
-            element={!isAuthenticated ? <Auth /> : <Navigate to="/" />}
-          />
+          <Route path="/" element={<Landing />} />
+          <Route path="/dashboard" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/history" element={<AuditHistory />} />
+          <Route path="/chat" element={<AIProfitChat />} />
+          <Route path="/integrations" element={<Integrations />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <Toaster />
       </Router>
+      <Toaster />
     </QueryClientProvider>
   );
 }
