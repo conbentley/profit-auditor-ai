@@ -17,7 +17,7 @@ const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   const menuItems = [
-    { icon: Home, label: "Dashboard", path: "/" },
+    { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: MessageSquare, label: "AI Profit Chat", path: "/chat" },
     { icon: History, label: "Audit History", path: "/history" },
