@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,13 +80,6 @@ export default function CRMIntegrations() {
   const [instanceUrl, setInstanceUrl] = useState('');
   const [isTestMode, setIsTestMode] = useState(false);
   const [showCredentialsGuide, setShowCredentialsGuide] = useState(false);
-
-  // Automatically show the credentials guide when a platform is selected
-  useEffect(() => {
-    if (platform) {
-      setShowCredentialsGuide(true);
-    }
-  }, [platform]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +189,15 @@ export default function CRMIntegrations() {
 
         {platform && (
           <>
+            <button
+              type="button"
+              onClick={() => setShowCredentialsGuide(true)}
+              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
+            >
+              <ExternalLink className="w-4 h-4 mr-1" />
+              Find your {platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials
+            </button>
+
             {isAdmin && (
               <div className="flex items-center space-x-2">
                 <Switch
