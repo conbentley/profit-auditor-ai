@@ -210,7 +210,7 @@ ${recommendationsCSV}
             className="gap-2"
           >
             <MessageSquare className="h-4 w-4" />
-            AI Profit Chat
+            AI Assistant
           </Button>
         </div>
       </div>
