@@ -72,6 +72,8 @@ export function useUserSettings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      console.log("Fetching settings for user:", user.id);
+
       const { data, error } = await supabase
         .from('user_settings')
         .select('*')
@@ -80,7 +82,10 @@ export function useUserSettings() {
 
       if (error) throw error;
 
+      console.log("Current settings:", data);
+
       if (!data) {
+        console.log("No settings found, creating default settings");
         const { data: newSettings, error: createError } = await supabase
           .from('user_settings')
           .insert({ 
@@ -105,18 +110,25 @@ export function useUserSettings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      console.log("Updating settings with:", newSettings);
+
       const { error } = await supabase
         .from('user_settings')
         .update(newSettings)
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating settings:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log("Settings updated successfully");
       queryClient.invalidateQueries({ queryKey: ['user-settings'] });
       toast.success("Settings updated successfully");
     },
     onError: (error: Error) => {
+      console.error("Settings update failed:", error);
       toast.error("Failed to update settings: " + error.message);
     }
   });
