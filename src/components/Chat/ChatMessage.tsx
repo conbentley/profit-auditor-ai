@@ -7,6 +7,39 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ role, children }: ChatMessageProps) {
+  // Function to format message text with bold and bullet points
+  const formatMessage = (text: string) => {
+    if (role !== 'assistant') return text;
+
+    return text.split('\n').map((line, index) => {
+      // Format bold text wrapped in ** or __
+      line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      line = line.replace(/__(.*?)__/g, '<strong>$1</strong>');
+
+      // Format bullet points
+      if (line.startsWith('- ')) {
+        return (
+          <li key={index} className="ml-4">
+            <span dangerouslySetInnerHTML={{ __html: line.substring(2) }} />
+          </li>
+        );
+      }
+
+      // Format headers (###)
+      if (line.startsWith('### ')) {
+        return (
+          <h3 key={index} className="font-semibold text-lg mb-2">
+            <span dangerouslySetInnerHTML={{ __html: line.substring(4) }} />
+          </h3>
+        );
+      }
+
+      return (
+        <div key={index} dangerouslySetInnerHTML={{ __html: line }} />
+      );
+    });
+  };
+
   return (
     <div className={`flex ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
       <div
@@ -16,7 +49,13 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
             : 'bg-muted mr-4'
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap">{children}</p>
+        {typeof children === 'string' ? (
+          <div className="text-sm space-y-1">
+            {formatMessage(children)}
+          </div>
+        ) : (
+          <p className="text-sm whitespace-pre-wrap">{children}</p>
+        )}
       </div>
     </div>
   );
