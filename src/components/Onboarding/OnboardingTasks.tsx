@@ -15,6 +15,12 @@ interface Task {
   isCompleted: boolean;
 }
 
+type OnboardingData = {
+  user_id: string;
+  completed_tasks: string[];
+  is_completed: boolean;
+}
+
 export default function OnboardingTasks() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
@@ -48,18 +54,13 @@ export default function OnboardingTasks() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
-          .from('onboarding_progress')
-          .select('completed_tasks')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) throw error;
+        const { data } = await supabase
+          .rpc('get_onboarding_progress', { user_id: user.id });
 
         if (data) {
           setTasks(prev => prev.map(task => ({
             ...task,
-            isCompleted: data.completed_tasks.includes(task.id)
+            isCompleted: (data as OnboardingData).completed_tasks?.includes(task.id) ?? false
           })));
         }
       } catch (error) {
@@ -78,16 +79,22 @@ export default function OnboardingTasks() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('onboarding_progress')
-        .update({
-          completed_tasks: supabase.sql`array_append(completed_tasks, ${taskId})`
-        })
-        .eq('user_id', user.id)
-        .select()
-        .single();
+      const { data: currentData } = await supabase
+        .rpc('get_onboarding_progress', { user_id: user.id });
 
-      if (error) throw error;
+      const updatedTasks = Array.from(new Set([
+        ...(currentData as OnboardingData)?.completed_tasks || [],
+        taskId
+      ]));
+
+      const { error: updateError } = await supabase
+        .rpc('update_onboarding_progress', { 
+          p_user_id: user.id,
+          p_completed_tasks: updatedTasks,
+          p_is_completed: updatedTasks.length === tasks.length
+        });
+
+      if (updateError) throw updateError;
 
       setTasks(prev => prev.map(task => 
         task.id === taskId ? { ...task, isCompleted: true } : task
@@ -112,7 +119,7 @@ export default function OnboardingTasks() {
     <Card className="p-6">
       <h2 className="text-2xl font-semibold mb-6">Welcome! Let's get you started</h2>
       <div className="space-y-6">
-        {tasks.map((task, index) => (
+        {tasks.map((task) => (
           <div key={task.id} className="flex items-start gap-4">
             <div className="mt-1">
               {task.isCompleted ? (

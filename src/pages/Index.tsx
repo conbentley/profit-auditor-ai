@@ -10,6 +10,12 @@ import { formatCurrency, formatPercentage } from "@/lib/formatters";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+type OnboardingData = {
+  user_id: string;
+  completed_tasks: string[];
+  is_completed: boolean;
+}
+
 const Index = () => {
   const { data: metricsData, isLoading } = useDashboardMetrics();
   const [showOnboarding, setShowOnboarding] = useState(true);
@@ -20,14 +26,13 @@ const Index = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
-          .from('onboarding_progress')
-          .select('is_completed')
-          .eq('user_id', user.id)
-          .single();
+        const { data } = await supabase
+          .rpc('get_onboarding_progress', { user_id: user.id });
 
-        if (error) throw error;
-        setShowOnboarding(!data.is_completed);
+        if (data) {
+          const progress = data as OnboardingData;
+          setShowOnboarding(!progress.is_completed);
+        }
       } catch (error) {
         console.error('Error checking onboarding status:', error);
       }
