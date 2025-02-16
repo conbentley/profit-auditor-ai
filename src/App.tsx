@@ -13,6 +13,7 @@ import Integrations from "@/pages/Integrations";
 import NotFound from "@/pages/NotFound";
 import Landing from "@/pages/Landing";
 import Support from "@/pages/Support";
+import Documentation from "@/pages/Documentation";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
           <Route path="/ai-profit-assistant" element={<AIProfitChat />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/support" element={<Support />} />
+          <Route path="/documentation" element={<Documentation />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

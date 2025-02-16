@@ -11,6 +11,7 @@ import {
   ChevronRight,
   MessageSquare,
   Link2,
+  FileText,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -22,6 +23,7 @@ const Sidebar = () => {
     { icon: MessageSquare, label: "AI Profit Assistant", path: "/ai-profit-assistant" },
     { icon: History, label: "Audit History", path: "/history" },
     { icon: Link2, label: "Integrations", path: "/integrations" },
+    { icon: FileText, label: "Documentation", path: "/documentation" },
     { icon: Settings, label: "Settings", path: "/settings" },
     { icon: HelpCircle, label: "Support", path: "/support" },
   ];
