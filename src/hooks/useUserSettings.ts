@@ -6,7 +6,7 @@ import { toast } from "sonner";
 export interface UserSettings {
   id: string;
   user_id: string;
-  company_name: string | null;
+  company_name: string | null; // Made explicitly nullable
   company_website: string | null;
   job_title: string | null;
   phone_number: string | null;
@@ -38,6 +38,7 @@ export interface UserSettings {
 }
 
 const defaultSettings: Partial<UserSettings> = {
+  company_name: null,
   audit_frequency: 'on_demand',
   email_frequency: 'instant',
   email_notifications: true,
@@ -86,10 +87,10 @@ export function useUserSettings() {
           .single();
 
         if (createError) throw createError;
-        return newSettings as UserSettings;
+        return newSettings as unknown as UserSettings;
       }
 
-      return data as UserSettings;
+      return data as unknown as UserSettings;
     }
   });
 

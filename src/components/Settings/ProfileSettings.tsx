@@ -11,6 +11,7 @@ const ProfileSettings = () => {
   const { settings, updateSettings, isUpdating } = useUserSettings();
   const [profile, setProfile] = useState<{ full_name: string | null }>({ full_name: null });
   const [formData, setFormData] = useState({
+    company_name: '',
     phone_number: '',
     job_title: '',
     company_website: '',
@@ -41,6 +42,7 @@ const ProfileSettings = () => {
   useEffect(() => {
     if (settings) {
       setFormData({
+        company_name: settings.company_name || '',
         phone_number: settings.phone_number || '',
         job_title: settings.job_title || '',
         company_website: settings.company_website || '',
@@ -63,6 +65,7 @@ const ProfileSettings = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const settingsData = {
+      company_name: formData.company_name,
       phone_number: formData.phone_number,
       job_title: formData.job_title,
       company_website: formData.company_website,
@@ -85,6 +88,17 @@ const ProfileSettings = () => {
             onChange={handleChange}
             placeholder="John Doe"
             disabled
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="company_name" className="text-sm font-medium">Company Name</label>
+          <Input
+            id="company_name"
+            name="company_name"
+            value={formData.company_name}
+            onChange={handleChange}
+            placeholder="Your Company Name"
           />
         </div>
 
