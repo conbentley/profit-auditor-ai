@@ -22,14 +22,73 @@ serve(async (req) => {
   try {
     const { query, auditContext } = await req.json();
 
+    // Comprehensive platform knowledge base
+    const platformInfo = `
+      Platform Features and Capabilities:
+      1. Financial Analysis
+      - Real-time profit monitoring and analysis
+      - Automated financial health checks
+      - Custom KPI tracking and benchmarking
+      - Detailed expense categorization and analysis
+      
+      2. AI-Powered Features
+      - AI Assistant for financial insights
+      - Predictive analytics for revenue forecasting
+      - Automated audit report generation
+      - Smart recommendations for profit optimization
+      
+      3. Integrations
+      - Financial software connections (QuickBooks, Xero, etc.)
+      - Payment gateway integrations
+      - CRM system synchronization
+      - E-commerce platform connections
+      
+      4. Reporting and Analytics
+      - Customizable dashboard views
+      - Export capabilities in multiple formats
+      - Historical audit tracking
+      - Trend analysis and visualization
+      
+      5. Security Features
+      - End-to-end encryption for all data
+      - Two-factor authentication (2FA)
+      - Role-based access control
+      - Regular security audits and compliance checks
+      - Automatic session timeouts
+      - Secure data backups
+      
+      6. Privacy Policy Highlights
+      - Data collection limited to essential business information
+      - No sharing of personal or financial data with third parties
+      - Data retention policies following industry standards
+      - User right to data deletion and export
+      - Regular privacy impact assessments
+      
+      7. Data Protection
+      - Bank-level encryption standards
+      - Regular penetration testing
+      - Compliance with GDPR, CCPA, and other regulations
+      - Secure API endpoints
+      - Regular security patches and updates
+      
+      8. Support and Resources
+      - 24/7 customer support
+      - Comprehensive documentation
+      - Video tutorials and guides
+      - Regular platform updates
+      - Community forums and knowledge base
+    `;
+
     // Format the context for the AI
-    const systemPrompt = `You are a financial AI assistant analyzing audit reports. 
+    const systemPrompt = `You are an AI assistant for the Profit Auditor platform. 
+    ${platformInfo}
+    
     Current audit context:
     - Summary: ${auditContext.summary}
     - KPIs: ${JSON.stringify(auditContext.kpis)}
     - Recommendations: ${JSON.stringify(auditContext.recommendations)}
     
-    Provide specific, data-driven answers based on this context. Be concise but thorough.`;
+    Provide specific, data-driven answers based on both the platform knowledge and current audit context. When discussing features or capabilities, reference the specific sections from the platform information. Be concise but thorough, and always prioritize security and privacy in your responses. If you're unsure about any specific detail, acknowledge that and refer the user to our support team.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
