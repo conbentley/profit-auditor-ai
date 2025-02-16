@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { ExternalLink } from "@/components/ui/external-link";
 
 type MarketplacePlatform = 'amazon' | 'ebay' | 'etsy';
 
@@ -81,6 +81,19 @@ export default function MarketplaceIntegrations() {
   const [syncPricing, setSyncPricing] = useState(true);
   const [syncOrders, setSyncOrders] = useState(true);
   const [isTestMode, setIsTestMode] = useState(false);
+
+  const getApiDocsLink = (platform: MarketplacePlatform | null) => {
+    switch (platform) {
+      case 'amazon':
+        return 'https://developer-docs.amazon.com/sp-api/docs/creating-and-configuring-iam-policies';
+      case 'ebay':
+        return 'https://developer.ebay.com/api-docs/static/oauth-credentials.html';
+      case 'etsy':
+        return 'https://developers.etsy.com/documentation/essentials/authentication#api-key';
+      default:
+        return '';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,6 +192,18 @@ export default function MarketplaceIntegrations() {
             </SelectContent>
           </Select>
         </div>
+
+        {platform && (
+          <a 
+            href={getApiDocsLink(platform)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
+          >
+            <ExternalLink className="w-4 h-4 mr-1" />
+            Find your {platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials
+          </a>
+        )}
 
         {isAdmin && (
           <div className="flex items-center space-x-2">

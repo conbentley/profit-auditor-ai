@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { ExternalLink } from "lucide-react";
 
 type EcommercePlatform = 'shopify' | 'woocommerce' | 'magento' | 'bigcommerce' | 'prestashop';
 
@@ -60,6 +60,23 @@ export default function EcommerceIntegrations() {
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
   const [isTestMode, setIsTestMode] = useState(false);
+
+  const getApiDocsLink = (platform: EcommercePlatform | null) => {
+    switch (platform) {
+      case 'shopify':
+        return 'https://shopify.dev/docs/admin-api/getting-started';
+      case 'woocommerce':
+        return 'https://woocommerce.github.io/woocommerce-rest-api-docs/#authentication';
+      case 'magento':
+        return 'https://developer.adobe.com/commerce/webapi/get-started/authentication/';
+      case 'bigcommerce':
+        return 'https://developer.bigcommerce.com/docs/start/authentication';
+      case 'prestashop':
+        return 'https://devdocs.prestashop-project.org/1.7/webservice/getting-started/';
+      default:
+        return '';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,6 +156,18 @@ export default function EcommerceIntegrations() {
             </SelectContent>
           </Select>
         </div>
+
+        {platform && (
+          <a 
+            href={getApiDocsLink(platform)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
+          >
+            <ExternalLink className="w-4 h-4 mr-1" />
+            Find your {platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials
+          </a>
+        )}
 
         {isAdmin && (
           <div className="flex items-center space-x-2">

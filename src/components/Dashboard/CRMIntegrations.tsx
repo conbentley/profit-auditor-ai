@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { ExternalLink } from "@/components/ui/external-link";
 
 type CRMPlatform = 'salesforce' | 'hubspot' | 'zoho' | 'dynamics365' | 'pipedrive' | 'gohighlevel';
 
@@ -141,6 +141,25 @@ export default function CRMIntegrations() {
     }
   };
 
+  const getApiDocsLink = (platform: CRMPlatform | null) => {
+    switch (platform) {
+      case 'salesforce':
+        return 'https://help.salesforce.com/s/articleView?id=sf.connected_app_create_api_integration.htm';
+      case 'hubspot':
+        return 'https://developers.hubspot.com/docs/api/private-apps';
+      case 'zoho':
+        return 'https://www.zoho.com/crm/developer/docs/api/v3/auth-request.html';
+      case 'dynamics365':
+        return 'https://learn.microsoft.com/en-us/dynamics365/customer-engagement/developer/use-microsoft-dynamics-365-web-api';
+      case 'pipedrive':
+        return 'https://pipedrive.readme.io/docs/core-api-concepts-authentication';
+      case 'gohighlevel':
+        return 'https://highlevel.stoplight.io/docs/integrations/567080da885e8-authentication';
+      default:
+        return '';
+    }
+  };
+
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold mb-4">Connect CRM Platform</h2>
@@ -164,6 +183,18 @@ export default function CRMIntegrations() {
             </SelectContent>
           </Select>
         </div>
+
+        {platform && (
+          <a 
+            href={getApiDocsLink(platform)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
+          >
+            <ExternalLink className="w-4 h-4 mr-1" />
+            Find your {platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials
+          </a>
+        )}
 
         {isAdmin && (
           <div className="flex items-center space-x-2">

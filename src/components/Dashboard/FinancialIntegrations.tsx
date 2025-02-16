@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AccountingProvider } from "@/types/financial";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { ExternalLink } from "lucide-react";
 
 async function validateFinancialCredentials(
   provider: AccountingProvider,
@@ -58,6 +60,19 @@ export default function FinancialIntegrations() {
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
   const [isTestMode, setIsTestMode] = useState(false);
+
+  const getApiDocsLink = (provider: AccountingProvider | null) => {
+    switch (provider) {
+      case 'xero':
+        return 'https://developer.xero.com/documentation/getting-started/getting-started-guide';
+      case 'quickbooks':
+        return 'https://developer.intuit.com/app/developer/qbo/docs/develop/authentication-and-authorization';
+      case 'sage':
+        return 'https://developer.sage.com/accounting/guides/authentication/';
+      default:
+        return '';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +141,18 @@ export default function FinancialIntegrations() {
             </SelectContent>
           </Select>
         </div>
+
+        {provider && (
+          <a 
+            href={getApiDocsLink(provider)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
+          >
+            <ExternalLink className="w-4 h-4 mr-1" />
+            Find your {provider.charAt(0).toUpperCase() + provider.slice(1)} API credentials
+          </a>
+        )}
 
         {isAdmin && (
           <div className="flex items-center space-x-2">
