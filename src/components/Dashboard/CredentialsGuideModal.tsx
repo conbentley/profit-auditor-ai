@@ -1,4 +1,3 @@
-
 import {
   Dialog,
   DialogContent,
@@ -93,6 +92,67 @@ const guides: Record<string, PlatformGuide> = {
       { text: "Click 'Create new API key' under Developer Information" },
       { text: "Generate and save your API credentials" },
       { text: "Need an Amazon Seller account?", link: { url: "https://sell.amazon.com/", label: "Become an Amazon Seller" } }
+    ]
+  },
+  // Payment platforms
+  stripe: {
+    title: "Get Stripe API Credentials",
+    steps: [
+      { text: "Log in to your Stripe Dashboard", link: { url: "https://dashboard.stripe.com/", label: "Stripe Dashboard" } },
+      { text: "Go to Developers > API keys", link: { url: "https://dashboard.stripe.com/apikeys", label: "API Keys" } },
+      { text: "Your publishable key starts with 'pk_', secret key starts with 'sk_'" },
+      { text: "Use test mode keys for development (they start with 'pk_test_' and 'sk_test_')" },
+      { text: "Need a Stripe account?", link: { url: "https://dashboard.stripe.com/register", label: "Sign up for Stripe" } }
+    ]
+  },
+  paypal: {
+    title: "Get PayPal API Credentials",
+    steps: [
+      { text: "Log in to your PayPal Developer Dashboard", link: { url: "https://developer.paypal.com/dashboard/", label: "PayPal Developer Dashboard" } },
+      { text: "Go to Apps & Credentials", link: { url: "https://developer.paypal.com/dashboard/applications/sandbox", label: "Apps & Credentials" } },
+      { text: "Create a new app or select an existing one" },
+      { text: "You'll find your Client ID and Secret on the app details page" },
+      { text: "Need a PayPal account?", link: { url: "https://www.paypal.com/signin", label: "Sign up for PayPal" } }
+    ]
+  },
+  square: {
+    title: "Get Square API Credentials",
+    steps: [
+      { text: "Log in to your Square Developer Dashboard", link: { url: "https://developer.squareup.com/apps", label: "Square Developer Dashboard" } },
+      { text: "Create a new application or select an existing one" },
+      { text: "Find your credentials in the Credentials tab" },
+      { text: "Make sure to select the correct environment (sandbox/production)" },
+      { text: "Need a Square account?", link: { url: "https://squareup.com/signup", label: "Sign up for Square" } }
+    ]
+  },
+  adyen: {
+    title: "Get Adyen API Credentials",
+    steps: [
+      { text: "Log in to your Adyen Customer Area", link: { url: "https://ca-live.adyen.com/ca/ca/overview/default.shtml", label: "Adyen Dashboard" } },
+      { text: "Go to Developers > API credentials", link: { url: "https://ca-live.adyen.com/ca/ca/config/api_credentials.shtml", label: "API Credentials" } },
+      { text: "Create a new credential or use existing ones" },
+      { text: "Copy your API key and other required credentials" },
+      { text: "Need an Adyen account?", link: { url: "https://www.adyen.com/signup", label: "Sign up for Adyen" } }
+    ]
+  },
+  braintree: {
+    title: "Get Braintree API Credentials",
+    steps: [
+      { text: "Log in to your Braintree Control Panel", link: { url: "https://sandbox.braintreegateway.com/login", label: "Braintree Dashboard" } },
+      { text: "Go to Settings > API" },
+      { text: "Find your Merchant ID, Public Key, and Private Key" },
+      { text: "Make sure to use sandbox credentials for testing" },
+      { text: "Need a Braintree account?", link: { url: "https://www.braintreepayments.com/sandbox", label: "Sign up for Braintree" } }
+    ]
+  },
+  razorpay: {
+    title: "Get Razorpay API Credentials",
+    steps: [
+      { text: "Log in to your Razorpay Dashboard", link: { url: "https://dashboard.razorpay.com/", label: "Razorpay Dashboard" } },
+      { text: "Go to Settings > API Keys", link: { url: "https://dashboard.razorpay.com/app/keys", label: "API Keys" } },
+      { text: "Generate a new API key pair if needed" },
+      { text: "Copy your Key ID and Key Secret" },
+      { text: "Need a Razorpay account?", link: { url: "https://razorpay.com/", label: "Sign up for Razorpay" } }
     ]
   }
 };

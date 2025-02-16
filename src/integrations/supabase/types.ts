@@ -631,6 +631,51 @@ export type Database = {
           },
         ]
       }
+      payment_integrations: {
+        Row: {
+          created_at: string
+          credentials: Json
+          id: string
+          is_active: boolean | null
+          is_test_mode: boolean | null
+          last_sync_at: string | null
+          metadata: Json | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          updated_at: string
+          user_id: string
+          webhook_secret: string | null
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          credentials: Json
+          id?: string
+          is_active?: boolean | null
+          is_test_mode?: boolean | null
+          last_sync_at?: string | null
+          metadata?: Json | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          updated_at?: string
+          user_id: string
+          webhook_secret?: string | null
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          credentials?: Json
+          id?: string
+          is_active?: boolean | null
+          is_test_mode?: boolean | null
+          last_sync_at?: string | null
+          metadata?: Json | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
+          updated_at?: string
+          user_id?: string
+          webhook_secret?: string | null
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -917,6 +962,13 @@ export type Database = {
         | "etsy"
       explanation_detail: "basic" | "intermediate" | "advanced"
       notification_frequency: "instant" | "daily" | "weekly"
+      payment_provider:
+        | "stripe"
+        | "paypal"
+        | "square"
+        | "adyen"
+        | "braintree"
+        | "razorpay"
       theme_preference: "light" | "dark" | "system"
       user_role: "admin" | "user"
     }
