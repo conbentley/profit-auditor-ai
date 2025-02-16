@@ -18,7 +18,10 @@ const Index = () => {
     async function checkOnboardingStatus() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setShowOnboarding(true);
+          return;
+        }
 
         const { data, error } = await supabase
           .from('profiles')
@@ -26,10 +29,17 @@ const Index = () => {
           .eq('id', user.id)
           .single();
 
-        if (error) throw error;
-        setShowOnboarding(!data.is_onboarded);
+        if (error) {
+          console.error('Error checking onboarding status:', error);
+          setShowOnboarding(true);
+          return;
+        }
+
+        // If data is null or is_onboarded is false/null, show onboarding
+        setShowOnboarding(!data?.is_onboarded);
       } catch (error) {
         console.error('Error checking onboarding status:', error);
+        setShowOnboarding(true);
       }
     }
 
@@ -56,11 +66,11 @@ const Index = () => {
       <div className="flex-1">
         <Header />
         <main className="p-6">
-          {showOnboarding ? (
+          {showOnboarding && (
             <div className="mb-6">
               <OnboardingTasks />
             </div>
-          ) : null}
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <StatCard
