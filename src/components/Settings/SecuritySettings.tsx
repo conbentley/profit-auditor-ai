@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,10 +5,11 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { supabase } from "@/integrations/supabase/client";
-import { AlertCircle, ShieldCheck, KeyRound } from "lucide-react";
+import { AlertCircle, ShieldCheck, KeyRound, Lock } from "lucide-react";
 import AuditLogViewer from "./AuditLogViewer";
 
 interface MFAData {
@@ -28,9 +28,16 @@ export default function SecuritySettings() {
   const [mfaSecret, setMfaSecret] = useState<MFAData | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
   const [challengeId, setChallengeId] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
   const logSecurityEvent = async (
-    eventType: 'mfa_enabled' | 'mfa_disabled' | 'data_exported',
+    eventType: 'mfa_enabled' | 'mfa_disabled' | 'data_exported' | 'password_changed',
     metadata: Record<string, any> = {}
   ) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -48,7 +55,6 @@ export default function SecuritySettings() {
   const handleMfaToggle = async () => {
     try {
       if (!isMfaEnabled) {
-        // Start MFA enrollment process
         const { data: factorData, error: enrollError } = await supabase.auth.mfa.enroll({
           factorType: 'totp',
           issuer: 'AI Profit Auditor'
@@ -59,7 +65,6 @@ export default function SecuritySettings() {
         setMfaSecret(factorData as unknown as MFAData);
         setShowMfaDialog(true);
       } else {
-        // Disable MFA
         const { data: factors } = await supabase.auth.mfa.listFactors();
         const totpFactor = factors.totp[0];
         
@@ -179,45 +184,116 @@ export default function SecuritySettings() {
     }
   };
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New passwords don't match");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters long");
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: settings?.email || '',
+        password: passwordData.currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error("Current password is incorrect");
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (updateError) throw updateError;
+
+      await logSecurityEvent('password_changed', {
+        timestamp: new Date().toISOString()
+      });
+
+      toast.success("Password updated successfully");
+      setShowPasswordDialog(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error: any) {
+      console.error('Password change error:', error);
+      toast.error(error.message);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   return (
     <>
       <Card className="p-6 space-y-6">
         <h2 className="text-2xl font-semibold">Security Settings</h2>
         
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium">Two-Factor Authentication</h3>
-              <p className="text-sm text-muted-foreground">
-                Add an extra layer of security to your account
-              </p>
+          <div className="border-b pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-medium">Password Settings</h3>
+                <p className="text-sm text-muted-foreground">
+                  Update your password to keep your account secure
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowPasswordDialog(true)}
+                className="flex items-center"
+              >
+                <Lock className="w-4 h-4 mr-2" />
+                Change Password
+              </Button>
             </div>
-            <Switch
-              checked={isMfaEnabled}
-              onCheckedChange={handleMfaToggle}
-              disabled={isUpdating}
-            />
           </div>
 
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Two-factor authentication adds an extra layer of security to your account.
-              We recommend enabling this feature.
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Two-Factor Authentication</h3>
+                <p className="text-sm text-muted-foreground">
+                  Add an extra layer of security to your account
+                </p>
+              </div>
+              <Switch
+                checked={isMfaEnabled}
+                onCheckedChange={handleMfaToggle}
+                disabled={isUpdating}
+              />
+            </div>
 
-          <div className="pt-4">
-            <h3 className="font-medium mb-2">Data Privacy</h3>
-            <Button
-              variant="outline"
-              onClick={handleDataExport}
-              disabled={isExportingData}
-              className="w-full sm:w-auto"
-            >
-              <ShieldCheck className="w-4 h-4 mr-2" />
-              {isExportingData ? 'Exporting...' : 'Export My Data'}
-            </Button>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Two-factor authentication adds an extra layer of security to your account.
+                We recommend enabling this feature.
+              </AlertDescription>
+            </Alert>
+
+            <div className="pt-4">
+              <h3 className="font-medium mb-2">Data Privacy</h3>
+              <Button
+                variant="outline"
+                onClick={handleDataExport}
+                disabled={isExportingData}
+                className="w-full sm:w-auto"
+              >
+                <ShieldCheck className="w-4 h-4 mr-2" />
+                {isExportingData ? 'Exporting...' : 'Export My Data'}
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
@@ -276,6 +352,77 @@ export default function SecuritySettings() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="currentPassword" className="text-sm font-medium">
+                Current Password
+              </label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={(e) => setPasswordData(prev => ({
+                  ...prev,
+                  currentPassword: e.target.value
+                }))}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="newPassword" className="text-sm font-medium">
+                New Password
+              </label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData(prev => ({
+                  ...prev,
+                  newPassword: e.target.value
+                }))}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="confirmPassword" className="text-sm font-medium">
+                Confirm New Password
+              </label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData(prev => ({
+                  ...prev,
+                  confirmPassword: e.target.value
+                }))}
+                required
+              />
+            </div>
+
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Make sure your new password is at least 6 characters long and includes a mix of letters, numbers, and symbols for better security.
+              </AlertDescription>
+            </Alert>
+
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isChangingPassword}>
+                {isChangingPassword ? "Updating..." : "Update Password"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </>
