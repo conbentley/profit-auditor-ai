@@ -24,7 +24,7 @@ function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/history" element={<AuditHistory />} />
-          <Route path="/chat" element={<AIProfitChat />} />
+          <Route path="/ai-profit-assistant" element={<AIProfitChat />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

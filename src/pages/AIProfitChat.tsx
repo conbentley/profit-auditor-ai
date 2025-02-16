@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -198,7 +199,7 @@ export default function AIProfitChat() {
         <main className="p-6">
           <Card className="p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-semibold">AI Profit Chat</h2>
+              <h2 className="text-2xl font-semibold">AI Profit Assistant</h2>
               {chatHistory?.messages?.length > 0 && (
                 <Button
                   variant="outline"
@@ -244,7 +245,6 @@ export default function AIProfitChat() {
         </main>
       </div>
 
-      {/* Clear Chat Confirmation Modal */}
       <ClearChatDialog
         open={showClearConfirm}
         onOpenChange={setShowClearConfirm}
