@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { ExternalLink } from "lucide-react";
+import { CredentialsGuideModal } from "./CredentialsGuideModal";
 
 type MarketplacePlatform = 'amazon' | 'ebay' | 'etsy';
 
@@ -81,6 +82,7 @@ export default function MarketplaceIntegrations() {
   const [syncPricing, setSyncPricing] = useState(true);
   const [syncOrders, setSyncOrders] = useState(true);
   const [isTestMode, setIsTestMode] = useState(false);
+  const [showCredentialsGuide, setShowCredentialsGuide] = useState(false);
 
   const getApiDocsLink = (platform: MarketplacePlatform | null) => {
     switch (platform) {
@@ -194,15 +196,14 @@ export default function MarketplaceIntegrations() {
         </div>
 
         {platform && (
-          <a 
-            href={getApiDocsLink(platform)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => setShowCredentialsGuide(true)}
             className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
           >
             <ExternalLink className="w-4 h-4 mr-1" />
             Find your {platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials
-          </a>
+          </button>
         )}
 
         {isAdmin && (
@@ -296,6 +297,12 @@ export default function MarketplaceIntegrations() {
           </p>
         )}
       </form>
+
+      <CredentialsGuideModal
+        platform={platform}
+        isOpen={showCredentialsGuide}
+        onClose={() => setShowCredentialsGuide(false)}
+      />
     </Card>
   );
 }

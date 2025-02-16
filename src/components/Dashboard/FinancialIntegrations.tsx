@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AccountingProvider } from "@/types/financial";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { ExternalLink } from "lucide-react";
+import { CredentialsGuideModal } from "./CredentialsGuideModal";
 
 async function validateFinancialCredentials(
   provider: AccountingProvider,
@@ -60,6 +60,7 @@ export default function FinancialIntegrations() {
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
   const [isTestMode, setIsTestMode] = useState(false);
+  const [showCredentialsGuide, setShowCredentialsGuide] = useState(false);
 
   const getApiDocsLink = (provider: AccountingProvider | null) => {
     switch (provider) {
@@ -143,15 +144,14 @@ export default function FinancialIntegrations() {
         </div>
 
         {provider && (
-          <a 
-            href={getApiDocsLink(provider)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => setShowCredentialsGuide(true)}
             className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
           >
             <ExternalLink className="w-4 h-4 mr-1" />
             Find your {provider.charAt(0).toUpperCase() + provider.slice(1)} API credentials
-          </a>
+          </button>
         )}
 
         {isAdmin && (
@@ -199,6 +199,12 @@ export default function FinancialIntegrations() {
           </p>
         )}
       </form>
+
+      <CredentialsGuideModal
+        platform={provider}
+        isOpen={showCredentialsGuide}
+        onClose={() => setShowCredentialsGuide(false)}
+      />
     </Card>
   );
 }
