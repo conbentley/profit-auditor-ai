@@ -76,7 +76,6 @@ export function useUserSettings() {
       if (error) throw error;
 
       if (!data) {
-        // Create default settings if none exist
         const { data: newSettings, error: createError } = await supabase
           .from('user_settings')
           .insert({ 
@@ -87,10 +86,10 @@ export function useUserSettings() {
           .single();
 
         if (createError) throw createError;
-        return newSettings as unknown as UserSettings;
+        return newSettings as UserSettings;
       }
 
-      return data as unknown as UserSettings;
+      return data as UserSettings;
     }
   });
 
@@ -99,38 +98,18 @@ export function useUserSettings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // First try to get the existing user settings
-      const { data: existingSettings } = await supabase
+      const { error } = await supabase
         .from('user_settings')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
+        .update(newSettings)
+        .eq('user_id', user.id);
 
-      if (!existingSettings) {
-        // If no settings exist, create new settings
-        const { error: createError } = await supabase
-          .from('user_settings')
-          .insert({ 
-            user_id: user.id,
-            ...defaultSettings,
-            ...newSettings
-          });
-        if (createError) throw createError;
-      } else {
-        // Update existing settings
-        const { error } = await supabase
-          .from('user_settings')
-          .update(newSettings)
-          .eq('user_id', user.id);
-        if (error) throw error;
-      }
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-settings'] });
       toast.success("Settings updated successfully");
     },
-    onError: (error) => {
-      console.error('Update error:', error);
+    onError: (error: Error) => {
       toast.error("Failed to update settings: " + error.message);
     }
   });

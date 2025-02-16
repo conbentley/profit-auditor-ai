@@ -1,3 +1,4 @@
+
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +53,6 @@ const ProfileSettings = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    // Clear city if country changes
     if (name === 'country') {
       setFormData(prev => ({ ...prev, [name]: value, city: '' }));
     } else {
@@ -60,23 +60,17 @@ const ProfileSettings = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const settingsData = {
-        phone_number: formData.phone_number,
-        job_title: formData.job_title,
-        company_website: formData.company_website,
-        bio: formData.bio,
-        city: formData.city,
-        country: formData.country,
-      };
-      console.log('Submitting settings:', settingsData);
-      await updateSettings(settingsData);
-    } catch (error) {
-      console.error('Form submission error:', error);
-      toast.error("Failed to save changes");
-    }
+    const settingsData = {
+      phone_number: formData.phone_number,
+      job_title: formData.job_title,
+      company_website: formData.company_website,
+      bio: formData.bio,
+      city: formData.city,
+      country: formData.country,
+    };
+    updateSettings(settingsData);
   };
 
   return (
@@ -90,7 +84,7 @@ const ProfileSettings = () => {
             value={profile.full_name || ''}
             onChange={handleChange}
             placeholder="John Doe"
-            disabled // Disabled because it should be managed in profiles table
+            disabled
           />
         </div>
 
