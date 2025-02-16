@@ -19,9 +19,10 @@ const ProfileSettings = () => {
     country: ''
   });
 
-  // Update form when settings are loaded - fixed by using useEffect instead of useState
+  // Update form when settings are loaded
   useEffect(() => {
     if (settings) {
+      console.log("Settings loaded:", settings); // Debug log
       setFormData({
         full_name: settings.full_name || '',
         company_name: settings.company_name || '',
@@ -42,11 +43,18 @@ const ProfileSettings = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Submitting form data:", formData); // Debug log
     await updateSettings(formData);
   };
 
   if (!settings) {
-    return <div>Loading...</div>;
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg text-gray-500">Loading profile information...</div>
+        </div>
+      </Card>
+    );
   }
 
   return (
