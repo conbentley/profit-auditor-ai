@@ -177,7 +177,7 @@ export default function OnboardingTasks() {
                   onClick={() => handleTaskClick(task.id, task.route)}
                   disabled={isDisabled}
                 >
-                  {task.isCompleted ? 'Completed - View Again' : 'Get Started'}
+                  {task.isCompleted ? 'Completed - View Again' : 'Connect'}
                 </Button>
                 {isDisabled && (
                   <p className="text-sm text-orange-600 mt-1">
