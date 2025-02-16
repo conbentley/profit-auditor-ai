@@ -71,7 +71,7 @@ export function useUserSettings() {
         .from('user_settings')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .single();
 
       if (error) throw error;
 
@@ -99,18 +99,38 @@ export function useUserSettings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase
+      // First try to get the existing user settings
+      const { data: existingSettings } = await supabase
         .from('user_settings')
-        .update(newSettings)
-        .eq('user_id', user.id);
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
 
-      if (error) throw error;
+      if (!existingSettings) {
+        // If no settings exist, create new settings
+        const { error: createError } = await supabase
+          .from('user_settings')
+          .insert({ 
+            user_id: user.id,
+            ...defaultSettings,
+            ...newSettings
+          });
+        if (createError) throw createError;
+      } else {
+        // Update existing settings
+        const { error } = await supabase
+          .from('user_settings')
+          .update(newSettings)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-settings'] });
       toast.success("Settings updated successfully");
     },
     onError: (error) => {
+      console.error('Update error:', error);
       toast.error("Failed to update settings: " + error.message);
     }
   });
@@ -121,4 +141,4 @@ export function useUserSettings() {
     updateSettings: updateSettings.mutate,
     isUpdating: updateSettings.isPending
   };
-};
+}

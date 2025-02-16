@@ -1,4 +1,3 @@
-
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,16 +62,21 @@ const ProfileSettings = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Only update fields that exist in the user_settings table
-    const settingsData = {
-      phone_number: formData.phone_number,
-      job_title: formData.job_title,
-      company_website: formData.company_website,
-      bio: formData.bio,
-      city: formData.city,
-      country: formData.country,
-    };
-    updateSettings(settingsData);
+    try {
+      const settingsData = {
+        phone_number: formData.phone_number,
+        job_title: formData.job_title,
+        company_website: formData.company_website,
+        bio: formData.bio,
+        city: formData.city,
+        country: formData.country,
+      };
+      console.log('Submitting settings:', settingsData);
+      await updateSettings(settingsData);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast.error("Failed to save changes");
+    }
   };
 
   return (
