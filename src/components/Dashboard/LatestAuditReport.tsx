@@ -6,9 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, RefreshCcw, MessageSquare, Download } from "lucide-react";
+import { Loader2, RefreshCcw, MessageSquare, Download, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface KPI {
   metric: string;
@@ -178,7 +179,13 @@ ${recommendationsCSV}
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Latest Audit Results</h3>
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold">Latest Audit Results</h3>
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Clock className="h-4 w-4 mr-1" />
+            Generated on {format(new Date(latestAudit.created_at), "MMM d, yyyy 'at' h:mm a")}
+          </div>
+        </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
