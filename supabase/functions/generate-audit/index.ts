@@ -22,20 +22,48 @@ serve(async (req) => {
   try {
     const { user_id, month, year } = await req.json();
 
-    // Fetch financial data from transactions
+    // Fetch data from all integration types
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
 
-    const { data: transactions, error: transactionsError } = await supabase
+    // 1. Financial transactions and metrics
+    const { data: transactions } = await supabase
       .from('financial_transactions')
       .select('*')
       .eq('user_id', user_id)
       .gte('transaction_date', startDate.toISOString())
       .lte('transaction_date', endDate.toISOString());
 
-    if (transactionsError) throw transactionsError;
+    // 2. E-commerce data
+    const { data: ecommerceMetrics } = await supabase
+      .from('ecommerce_metrics')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('metric_date', startDate.toISOString())
+      .lte('metric_date', endDate.toISOString());
 
-    // Calculate financial metrics
+    const { data: ecommerceSales } = await supabase
+      .from('ecommerce_sales')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('sale_date', startDate.toISOString())
+      .lte('sale_date', endDate.toISOString());
+
+    // 3. Payment processing data
+    const { data: paymentIntegrations } = await supabase
+      .from('payment_integrations')
+      .select('*')
+      .eq('user_id', user_id);
+
+    // 4. Marketing performance data
+    const { data: marketingData } = await supabase
+      .from('marketing_performance')
+      .select('*')
+      .eq('user_id', user_id)
+      .gte('date', startDate.toISOString())
+      .lte('date', endDate.toISOString());
+
+    // Calculate comprehensive metrics
     const revenue = transactions
       ?.filter(t => t.type === 'income')
       .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
@@ -46,79 +74,55 @@ serve(async (req) => {
 
     const profit_margin = revenue > 0 ? ((revenue - expenses) / revenue) * 100 : 0;
 
-    // Calculate cost breakdown by category
-    const cost_breakdown = transactions
-      ?.filter(t => t.type === 'expense')
-      .reduce((acc, t) => {
-        const category = t.category || 'Uncategorized';
-        acc[category] = (acc[category] || 0) + Number(t.amount);
-        return acc;
-      }, {} as Record<string, number>) ?? {};
+    // Calculate e-commerce specific metrics
+    const ecommerce_revenue = ecommerceSales?.reduce((sum, sale) => sum + Number(sale.total_price), 0) ?? 0;
+    const average_order_value = ecommerceSales && ecommerceSales.length > 0
+      ? ecommerce_revenue / ecommerceSales.length
+      : 0;
 
-    // Fetch marketplace data
-    const { data: marketplaceData } = await supabase
-      .from('marketplace_settings')
-      .select(`
-        *,
-        ecommerce_integrations!inner (
-          platform,
-          store_name,
-          last_sync_at,
-          last_sync_status
-        )
-      `)
-      .eq('user_id', user_id);
+    // Calculate marketing ROI
+    const marketing_spend = marketingData?.reduce((sum, data) => sum + Number(data.spend), 0) ?? 0;
+    const marketing_revenue = marketingData?.reduce((sum, data) => sum + (Number(data.revenue) || 0), 0) ?? 0;
+    const marketing_roi = marketing_spend > 0 ? ((marketing_revenue - marketing_spend) / marketing_spend) * 100 : 0;
 
-    // Fetch marketing performance data
-    const { data: marketingData } = await supabase
-      .from('marketing_performance')
-      .select('*')
-      .eq('user_id', user_id)
-      .gte('date', startDate.toISOString())
-      .lte('date', endDate.toISOString());
-
-    // Fetch competitor prices
-    const { data: competitorPrices } = await supabase
-      .from('competitor_prices')
-      .select('*')
-      .eq('user_id', user_id);
-
-    // Fetch e-commerce products
-    const { data: products } = await supabase
-      .from('ecommerce_products')
-      .select('*')
-      .eq('user_id', user_id);
-
-    // Fetch e-commerce sales
-    const { data: sales } = await supabase
-      .from('ecommerce_sales')
-      .select('*')
-      .eq('user_id', user_id)
-      .gte('sale_date', startDate.toISOString())
-      .lte('sale_date', endDate.toISOString());
-
-    // Fetch e-commerce metrics
-    const { data: ecommerceMetrics } = await supabase
-      .from('ecommerce_metrics')
-      .select('*')
-      .eq('user_id', user_id)
-      .gte('metric_date', startDate.toISOString())
-      .lte('metric_date', endDate.toISOString());
-
-    const financialData = {
-      revenue,
-      expenses,
-      profit_margin,
-      cost_breakdown,
-      marketing_performance: marketingData || [],
-      competitor_prices: competitorPrices || [],
-      inventory: products || [],
-      marketplace_integrations: marketplaceData || [],
-      ecommerce_sales: sales || [],
-      ecommerce_metrics: ecommerceMetrics || [],
+    // Prepare the comprehensive business data for AI analysis
+    const businessData = {
+      financial: {
+        revenue,
+        expenses,
+        profit_margin,
+        transactions: transactions || [],
+        cost_breakdown: transactions
+          ?.filter(t => t.type === 'expense')
+          .reduce((acc, t) => {
+            const category = t.category || 'Uncategorized';
+            acc[category] = (acc[category] || 0) + Number(t.amount);
+            return acc;
+          }, {} as Record<string, number>)
+      },
+      ecommerce: {
+        revenue: ecommerce_revenue,
+        average_order_value,
+        total_orders: ecommerceSales?.length ?? 0,
+        metrics: ecommerceMetrics || [],
+        sales: ecommerceSales || []
+      },
+      marketing: {
+        spend: marketing_spend,
+        revenue: marketing_revenue,
+        roi: marketing_roi,
+        performance: marketingData || []
+      },
+      integrations: {
+        payment: paymentIntegrations || [],
+        active_platforms: {
+          payment: paymentIntegrations?.filter(i => i.is_active).map(i => i.provider) || [],
+          ecommerce: ecommerceMetrics?.map(m => m.integration_id) || []
+        }
+      }
     };
 
-    // Generate AI analysis with enhanced focus areas including waste management
+    // Generate AI analysis with enhanced integration data
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -130,27 +134,43 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an advanced financial and e-commerce analyst AI specializing in business optimization. 
-            Focus on these key areas:
-            1. Dynamic Pricing Strategy: Analyze competitor prices, market trends, and cross-marketplace opportunities
-            2. Marketing ROI Optimization: Evaluate marketing spend effectiveness across channels
-            3. Inventory Management: Identify opportunities to optimize stock levels
-            4. Marketplace Performance: Compare performance across different marketplaces (Amazon, eBay, Etsy)
-            5. Cross-Platform Strategy: Suggest opportunities for cross-platform selling and optimization
-            6. Financial Health: Analyze profit margins, expense ratios, and cash flow
-            7. Customer Behavior: Analyze purchase patterns and suggest customer retention strategies
-            8. Waste Management and Sustainability:
-               - Identify potential areas of waste in inventory, packaging, and operations
-               - Analyze cost of waste in terms of unused inventory, returns, and damaged goods
-               - Suggest sustainable practices that can reduce costs and improve efficiency
-               - Look for opportunities to implement circular economy principles
-               - Consider environmental impact and potential cost savings from waste reduction
+            content: `You are an advanced financial and business analyst AI specializing in holistic business optimization.
+            Analyze data across multiple integration points:
+            1. Financial Health:
+               - Revenue streams and expense patterns
+               - Profit margins and cash flow
+               - Cost optimization opportunities
+            2. E-commerce Performance:
+               - Sales trends and order values
+               - Platform-specific performance
+               - Inventory and pricing optimization
+            3. Payment Processing:
+               - Transaction costs and efficiency
+               - Payment method distribution
+               - Provider-specific insights
+            4. Marketing ROI:
+               - Channel effectiveness
+               - Customer acquisition costs
+               - Cross-platform opportunities
+            5. Integration Optimization:
+               - Platform utilization
+               - Cross-integration opportunities
+               - Technical efficiency recommendations
+            6. Risk Analysis:
+               - Platform dependencies
+               - Revenue concentration
+               - Market exposure
+            7. Strategic Recommendations:
+               - Growth opportunities
+               - Cost optimization
+               - Platform consolidation
+               - Market expansion
             
             Return ONLY a JSON object with this exact structure:
             {
-              "summary": "Executive summary of findings",
+              "summary": "Executive summary of comprehensive analysis",
               "kpis": [
-                {"metric": "string", "value": "string", "trend": "string"}
+                {"metric": "string", "value": "string", "trend": "string", "category": "financial|ecommerce|marketing|integration"}
               ],
               "recommendations": [
                 {
@@ -158,14 +178,23 @@ serve(async (req) => {
                   "description": "string",
                   "impact": "High/Medium/Low",
                   "difficulty": "Easy/Medium/Hard",
-                  "category": "Pricing/Marketing/Inventory/Marketplace/Financial/Waste"
+                  "category": "financial|ecommerce|marketing|integration|strategic",
+                  "priority": 1-5
+                }
+              ],
+              "alerts": [
+                {
+                  "type": "risk|opportunity|action",
+                  "severity": "High/Medium/Low",
+                  "message": "string",
+                  "category": "financial|ecommerce|marketing|integration"
                 }
               ]
             }`
           },
           {
             role: 'user',
-            content: `Analyze these business metrics and provide specific recommendations: ${JSON.stringify(financialData)}`
+            content: `Analyze this comprehensive business data and provide specific recommendations: ${JSON.stringify(businessData)}`
           }
         ]
       }),
@@ -176,23 +205,9 @@ serve(async (req) => {
     }
 
     const aiResponse = await response.json();
-    console.log('OpenAI response:', aiResponse.choices[0].message.content);
+    const analysis = JSON.parse(aiResponse.choices[0].message.content);
 
-    // Parse the response, ensuring it's valid JSON
-    let analysis;
-    try {
-      analysis = JSON.parse(aiResponse.choices[0].message.content.trim());
-    } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', parseError);
-      throw new Error('Invalid response format from AI service');
-    }
-
-    // Validate required fields
-    if (!analysis.summary || !Array.isArray(analysis.kpis) || !Array.isArray(analysis.recommendations)) {
-      throw new Error('Invalid response structure from AI service');
-    }
-
-    // Store audit results
+    // Store audit results with enhanced metrics
     const { data: audit, error: insertError } = await supabase
       .from('financial_audits')
       .insert({
@@ -205,19 +220,36 @@ serve(async (req) => {
           revenue,
           profit_margin,
           expense_ratio: expenses > 0 ? (expenses / revenue) * 100 : 0,
-          audit_alerts: analysis.recommendations.length,
+          marketing_roi,
+          ecommerce_metrics: {
+            revenue: ecommerce_revenue,
+            average_order_value,
+            total_orders: ecommerceSales?.length ?? 0
+          },
+          audit_alerts: analysis.alerts?.length ?? 0,
           previous_month: {
             revenue: 0,
             profit_margin: 0,
             expense_ratio: 0,
+            marketing_roi: 0,
             audit_alerts: 0
           }
         },
         analysis_metadata: {
-          data_source: 'transactions',
+          data_sources: [
+            'financial_transactions',
+            'ecommerce_metrics',
+            'ecommerce_sales',
+            'payment_integrations',
+            'marketing_performance'
+          ],
           ai_model: 'gpt-4o-mini',
           timestamp: new Date().toISOString(),
-          metrics: financialData
+          integration_coverage: {
+            payment: paymentIntegrations?.length ?? 0,
+            ecommerce: ecommerceMetrics?.length ?? 0,
+            marketing: marketingData?.length ?? 0
+          }
         }
       })
       .select()
@@ -226,7 +258,7 @@ serve(async (req) => {
     if (insertError) throw insertError;
 
     return new Response(
-      JSON.stringify({ success: true, audit: audit }),
+      JSON.stringify({ success: true, audit }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
