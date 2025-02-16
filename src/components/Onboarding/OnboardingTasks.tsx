@@ -6,6 +6,7 @@ import { Loader2, CheckCircle2, Circle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Task {
   id: string;
@@ -24,7 +25,9 @@ interface Profile {
 
 export default function OnboardingTasks() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([
     {
       id: 'integrations',
@@ -134,8 +137,50 @@ export default function OnboardingTasks() {
         return;
       }
 
-      // Simple navigation for now - we'll update the completion status later
-      if (!skipNavigation) {
+      if (taskId === 'audit' && !skipNavigation) {
+        setIsGenerating(true);
+        const currentDate = new Date();
+        
+        try {
+          const response = await supabase.functions.invoke('generate-audit', {
+            body: {
+              user_id: user.id,
+              month: currentDate.getMonth() + 1,
+              year: currentDate.getFullYear(),
+            },
+          });
+
+          if (response.error) {
+            throw response.error;
+          }
+
+          // Invalidate queries to refresh the dashboard data
+          queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+          queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
+          
+          toast.success('Audit generated successfully');
+          
+          // Mark the audit task as completed
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              completed_onboarding_tasks: [...(tasks.find(t => t.isCompleted)?.id ? [tasks.find(t => t.isCompleted)?.id] : []), taskId]
+            })
+            .eq('id', user.id);
+
+          if (updateError) throw updateError;
+          
+          setTasks(prev => prev.map(task => ({
+            ...task,
+            isCompleted: task.id === taskId ? true : task.isCompleted
+          })));
+        } catch (error) {
+          console.error('Error generating audit:', error);
+          toast.error('Failed to generate audit');
+        } finally {
+          setIsGenerating(false);
+        }
+      } else if (!skipNavigation) {
         navigate(route);
       }
     } catch (error) {
@@ -175,12 +220,17 @@ export default function OnboardingTasks() {
                 <Button 
                   variant={task.isCompleted ? "outline" : "default"}
                   onClick={() => handleTaskClick(task.id, task.route)}
-                  disabled={isDisabled}
+                  disabled={isDisabled || (task.id === 'audit' && isGenerating)}
                 >
                   {task.isCompleted 
                     ? 'Completed - View Again' 
-                    : task.id === 'audit' 
-                      ? 'Generate'
+                    : task.id === 'audit'
+                      ? isGenerating 
+                        ? <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Generating...
+                          </div>
+                        : 'Generate'
                       : 'Connect'
                   }
                 </Button>
