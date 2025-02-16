@@ -50,6 +50,7 @@ export default function OnboardingTasks() {
       description: 'Ask questions about your audit and get detailed insights from our AI assistant.',
       route: '/chat',
       isCompleted: false,
+      requiredTask: 'audit', // This will check both audit and integrations since audit requires integrations
     },
   ]);
 
@@ -231,12 +232,17 @@ export default function OnboardingTasks() {
                             Generating...
                           </div>
                         : 'Generate'
-                      : 'Connect'
+                      : task.id === 'chat'
+                        ? 'Chat'
+                        : 'Connect'
                   }
                 </Button>
                 {isDisabled && (
                   <p className="text-sm text-orange-600 mt-1">
-                    Complete "{requiredTask?.title}" first
+                    {task.id === 'chat' 
+                      ? "Complete 'Connect Your APIs' and 'Generate Your First Audit' first"
+                      : `Complete "${requiredTask?.title}" first`
+                    }
                   </p>
                 )}
               </div>
