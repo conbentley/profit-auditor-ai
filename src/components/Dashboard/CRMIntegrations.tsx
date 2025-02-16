@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,6 +80,13 @@ export default function CRMIntegrations() {
   const [instanceUrl, setInstanceUrl] = useState('');
   const [isTestMode, setIsTestMode] = useState(false);
   const [showCredentialsGuide, setShowCredentialsGuide] = useState(false);
+
+  // Automatically show the credentials guide when a platform is selected
+  useEffect(() => {
+    if (platform) {
+      setShowCredentialsGuide(true);
+    }
+  }, [platform]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,73 +195,66 @@ export default function CRMIntegrations() {
         </div>
 
         {platform && (
-          <button
-            type="button"
-            onClick={() => setShowCredentialsGuide(true)}
-            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
-          >
-            <ExternalLink className="w-4 h-4 mr-1" />
-            Find your {platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials
-          </button>
-        )}
+          <>
+            {isAdmin && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="test-mode"
+                  checked={isTestMode}
+                  onCheckedChange={setIsTestMode}
+                />
+                <Label htmlFor="test-mode">Test Mode</Label>
+              </div>
+            )}
 
-        {isAdmin && (
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="test-mode"
-              checked={isTestMode}
-              onCheckedChange={setIsTestMode}
-            />
-            <Label htmlFor="test-mode">Test Mode</Label>
-          </div>
-        )}
+            {PLATFORMS_REQUIRING_URL.includes(platform) && (
+              <div className="space-y-2">
+                <Label htmlFor="instanceUrl">Instance URL</Label>
+                <Input
+                  id="instanceUrl"
+                  type="url"
+                  value={instanceUrl}
+                  onChange={(e) => setInstanceUrl(e.target.value)}
+                  placeholder={platform ? getInstanceUrlPlaceholder(platform) : ""}
+                  required
+                />
+              </div>
+            )}
 
-        {PLATFORMS_REQUIRING_URL.includes(platform as CRMPlatform) && (
-          <div className="space-y-2">
-            <Label htmlFor="instanceUrl">Instance URL</Label>
-            <Input
-              id="instanceUrl"
-              type="url"
-              value={instanceUrl}
-              onChange={(e) => setInstanceUrl(e.target.value)}
-              placeholder={platform ? getInstanceUrlPlaceholder(platform as CRMPlatform) : ""}
-              required
-            />
-          </div>
-        )}
+            <div className="space-y-2">
+              <Label htmlFor="apiKey">API Key</Label>
+              <Input
+                id="apiKey"
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={isTestMode && isAdmin ? "test_api_key" : "Enter API key"}
+                required
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="apiKey">API Key</Label>
-          <Input
-            id="apiKey"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={isTestMode && isAdmin ? "test_api_key" : "Enter API key"}
-            required
-          />
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiSecret">API Secret</Label>
+              <Input
+                id="apiSecret"
+                type="password"
+                value={apiSecret}
+                onChange={(e) => setApiSecret(e.target.value)}
+                placeholder={isTestMode && isAdmin ? "test_api_secret" : "Enter API secret"}
+                required
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="apiSecret">API Secret</Label>
-          <Input
-            id="apiSecret"
-            type="password"
-            value={apiSecret}
-            onChange={(e) => setApiSecret(e.target.value)}
-            placeholder={isTestMode && isAdmin ? "test_api_secret" : "Enter API secret"}
-            required
-          />
-        </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
+            </Button>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
-        </Button>
-
-        {isTestMode && isAdmin && (
-          <p className="text-sm text-muted-foreground mt-2">
-            Test mode enabled. No real API calls will be made.
-          </p>
+            {isTestMode && isAdmin && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Test mode enabled. No real API calls will be made.
+              </p>
+            )}
+          </>
         )}
       </form>
 
