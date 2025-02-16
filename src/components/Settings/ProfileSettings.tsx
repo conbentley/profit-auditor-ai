@@ -5,34 +5,33 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ProfileSettings = () => {
   const { settings, updateSettings, isUpdating, isLoading } = useUserSettings();
   const [formData, setFormData] = useState({
+    full_name: '',
     email: '',
     company_name: '',
-    full_name: '',
     phone_number: '',
     job_title: '',
     company_website: '',
-    bio: '',
+    country: '',
     city: '',
-    country: ''
+    bio: ''
   });
 
   useEffect(() => {
     if (settings) {
       setFormData({
+        full_name: settings.full_name || '',
         email: settings.email || '',
         company_name: settings.company_name || '',
-        full_name: settings.full_name || '',
         phone_number: settings.phone_number || '',
         job_title: settings.job_title || '',
         company_website: settings.company_website || '',
-        bio: settings.bio || '',
+        country: settings.country || '',
         city: settings.city || '',
-        country: settings.country || ''
+        bio: settings.bio || ''
       });
     }
   }, [settings]);
@@ -90,6 +89,17 @@ const ProfileSettings = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
+                  <label htmlFor="full_name" className="text-sm font-medium">Full Name</label>
+                  <Input
+                    id="full_name"
+                    name="full_name"
+                    value={formData.full_name}
+                    onChange={handleChange}
+                    placeholder="John Doe"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <label htmlFor="email" className="text-sm font-medium">Email</label>
                   <Input
                     id="email"
@@ -113,13 +123,13 @@ const ProfileSettings = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="full_name" className="text-sm font-medium">Full Name</label>
+                  <label htmlFor="phone_number" className="text-sm font-medium">Phone Number</label>
                   <Input
-                    id="full_name"
-                    name="full_name"
-                    value={formData.full_name}
+                    id="phone_number"
+                    name="phone_number"
+                    value={formData.phone_number}
                     onChange={handleChange}
-                    placeholder="John Doe"
+                    placeholder="+1 (555) 000-0000"
                   />
                 </div>
 
@@ -135,17 +145,6 @@ const ProfileSettings = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="phone_number" className="text-sm font-medium">Phone Number</label>
-                  <Input
-                    id="phone_number"
-                    name="phone_number"
-                    value={formData.phone_number}
-                    onChange={handleChange}
-                    placeholder="+1 (555) 000-0000"
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <label htmlFor="company_website" className="text-sm font-medium">Company Website (Optional)</label>
                   <Input
                     id="company_website"
@@ -157,17 +156,6 @@ const ProfileSettings = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="city" className="text-sm font-medium">City</label>
-                  <Input
-                    id="city"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    placeholder="Enter your city"
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <label htmlFor="country" className="text-sm font-medium">Country</label>
                   <Input
                     id="country"
@@ -175,6 +163,17 @@ const ProfileSettings = () => {
                     value={formData.country}
                     onChange={handleChange}
                     placeholder="Enter your country"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="city" className="text-sm font-medium">City</label>
+                  <Input
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    placeholder="Enter your city"
                   />
                 </div>
               </div>
