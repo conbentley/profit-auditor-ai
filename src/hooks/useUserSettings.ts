@@ -70,7 +70,27 @@ export function useUserSettings() {
           .insert([{ 
             user_id: user.id,
             email: user.email,
-            full_name: user.user_metadata?.full_name || null
+            full_name: user.user_metadata?.full_name || null,
+            company_name: null,
+            company_website: null,
+            job_title: null,
+            phone_number: null,
+            bio: null,
+            city: null,
+            country: null,
+            timezone: 'UTC',
+            data_refresh_interval: '1h',
+            audit_frequency: 'on_demand',
+            audit_schedule_time: '09:00',
+            email_notifications: true,
+            email_frequency: 'daily',
+            in_app_notifications: true,
+            sms_notifications: false,
+            dashboard_layout: 'grid',
+            theme: 'system',
+            language: 'en',
+            two_factor_enabled: false,
+            data_sharing_enabled: false
           }])
           .select('*')
           .single();
@@ -109,7 +129,7 @@ export function useUserSettings() {
         throw new Error("No data returned after update");
       }
 
-      return data;
+      return data as UserSettings;
     },
     onSuccess: () => {
       console.log("Settings updated successfully");
