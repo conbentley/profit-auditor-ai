@@ -13,7 +13,7 @@ interface Task {
   description: string;
   route: string;
   isCompleted: boolean;
-  requiredTask?: string; // Add dependency between tasks
+  requiredTask?: string;
 }
 
 interface Profile {
@@ -39,7 +39,7 @@ export default function OnboardingTasks() {
       description: 'Generate an AI-powered audit of your business performance from the dashboard.',
       route: '/dashboard',
       isCompleted: false,
-      requiredTask: 'integrations', // Audit requires integration
+      requiredTask: 'integrations',
     },
     {
       id: 'chat',
@@ -84,7 +84,6 @@ export default function OnboardingTasks() {
                               (ecommerceIntegrations && ecommerceIntegrations.length > 0);
 
         if (hasIntegrations) {
-          // Mark integration task as completed if any integration exists
           handleTaskClick('integrations', '/integrations', true);
         }
       } catch (error) {
@@ -97,15 +96,14 @@ export default function OnboardingTasks() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
+        const { data: profile, error } = await supabase
           .from('profiles')
-          .select('completed_onboarding_tasks')
+          .select('id, completed_onboarding_tasks, is_onboarded')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
 
-        const profile = data as Profile;
         if (profile) {
           setTasks(prev => prev.map(task => ({
             ...task,
@@ -113,7 +111,6 @@ export default function OnboardingTasks() {
           })));
         }
 
-        // After loading the initial state, check integrations
         await checkIntegrations();
       } catch (error) {
         console.error('Error fetching onboarding progress:', error);
@@ -131,7 +128,6 @@ export default function OnboardingTasks() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Check if this task has a required task that isn't completed
       const task = tasks.find(t => t.id === taskId);
       if (task?.requiredTask) {
         const requiredTask = tasks.find(t => t.id === task.requiredTask);
@@ -141,23 +137,23 @@ export default function OnboardingTasks() {
         }
       }
 
-      // Get current tasks
-      const { data, error: fetchError } = await supabase
+      const { data: profile, error: fetchError } = await supabase
         .from('profiles')
-        .select('completed_onboarding_tasks')
+        .select('id, completed_onboarding_tasks, is_onboarded')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
+      if (!profile) {
+        toast.error('Profile not found');
+        return;
+      }
 
-      const profile = data as Profile;
-      // Update tasks array
       const updatedTasks = Array.from(new Set([
         ...(profile.completed_onboarding_tasks || []),
         taskId
       ]));
 
-      // Update the profile with new tasks
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
