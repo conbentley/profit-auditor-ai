@@ -635,6 +635,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           company_name: string | null
+          completed_onboarding_tasks: string[] | null
           email: string
           full_name: string | null
           id: string
@@ -645,6 +646,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           company_name?: string | null
+          completed_onboarding_tasks?: string[] | null
           email: string
           full_name?: string | null
           id: string
@@ -655,6 +657,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           company_name?: string | null
+          completed_onboarding_tasks?: string[] | null
           email?: string
           full_name?: string | null
           id?: string

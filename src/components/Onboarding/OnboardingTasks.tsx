@@ -101,7 +101,7 @@ export default function OnboardingTasks() {
           .from('profiles')
           .select('completed_onboarding_tasks')
           .eq('id', user.id)
-          .maybeSingle();
+          .single();
 
         if (error) {
           console.error('Error fetching profile:', error);
