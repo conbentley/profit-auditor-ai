@@ -21,9 +21,22 @@ const ProfileSettings = () => {
     country: '',
   });
 
-  // Initialize form data with settings when they're loaded
   useEffect(() => {
     if (settings) {
+      // Check if user has any profile data set
+      const hasProfileData = settings.full_name || 
+                           settings.company_name || 
+                           settings.phone_number || 
+                           settings.job_title || 
+                           settings.company_website || 
+                           settings.bio || 
+                           settings.city || 
+                           settings.country;
+
+      // If no profile data, show edit form by default
+      setIsEditing(!hasProfileData);
+      
+      // Update form data with existing settings
       setFormData({
         full_name: settings.full_name || '',
         company_name: settings.company_name || '',
@@ -42,9 +55,9 @@ const ProfileSettings = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateSettings(formData);
+    await updateSettings(formData);
     setIsEditing(false);
   };
 
@@ -52,6 +65,7 @@ const ProfileSettings = () => {
     return <div>Loading...</div>;
   }
 
+  // Show profile view when not editing and has data
   if (!isEditing) {
     return (
       <div className="space-y-6">
@@ -114,17 +128,21 @@ const ProfileSettings = () => {
     );
   }
 
+  // Show edit form
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-semibold">Edit Profile</h3>
-        <Button 
-          variant="ghost" 
-          onClick={() => setIsEditing(false)}
-          type="button"
-        >
-          Cancel
-        </Button>
+        {/* Only show Cancel button if profile data exists */}
+        {(settings.full_name || settings.company_name) && (
+          <Button 
+            variant="ghost" 
+            onClick={() => setIsEditing(false)}
+            type="button"
+          >
+            Cancel
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
