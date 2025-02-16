@@ -42,7 +42,7 @@ export default function Landing() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-6 w-6 text-primary" />
-            <span className="text-xl font-semibold">Profit Auditor AI</span>
+            <span className="text-xl font-semibold">ClearProfit AI</span>
           </div>
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate("/auth")}>
@@ -261,10 +261,10 @@ export default function Landing() {
         <div className="container mx-auto px-4 text-center text-gray-600">
           <div className="flex items-center justify-center gap-2 mb-4">
             <BarChart3 className="h-5 w-5 text-primary" />
-            <span className="font-semibold">Profit Auditor AI</span>
+            <span className="font-semibold">ClearProfit AI</span>
           </div>
           <p className="text-sm">
-            © {new Date().getFullYear()} Profit Auditor AI. All rights reserved.
+            © {new Date().getFullYear()} ClearProfit AI. All rights reserved.
           </p>
         </div>
       </footer>
