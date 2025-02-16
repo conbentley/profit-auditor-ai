@@ -16,7 +16,10 @@ export default function Integrations() {
         <Header />
         <main className="p-6">
           <Card className="p-6">
-            <h2 className="text-2xl font-semibold mb-6">Integrations</h2>
+            <h2 className="text-2xl font-semibold mb-2">Integrations</h2>
+            <p className="text-gray-600 mb-6">
+              Connect your business platforms to enable a comprehensive audit. For the most accurate insights, we recommend integrating all relevant systems including financial, e-commerce, and CRM platforms.
+            </p>
             <Tabs defaultValue="financial" className="space-y-6">
               <TabsList>
                 <TabsTrigger value="financial">Financial</TabsTrigger>
