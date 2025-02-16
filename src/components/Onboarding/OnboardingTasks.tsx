@@ -54,13 +54,18 @@ export default function OnboardingTasks() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data } = await supabase
-          .rpc('get_onboarding_progress', { user_id: user.id });
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('completed_onboarding_tasks')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
 
         if (data) {
           setTasks(prev => prev.map(task => ({
             ...task,
-            isCompleted: (data as OnboardingData).completed_tasks?.includes(task.id) ?? false
+            isCompleted: data.completed_onboarding_tasks?.includes(task.id) ?? false
           })));
         }
       } catch (error) {
@@ -79,20 +84,29 @@ export default function OnboardingTasks() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: currentData } = await supabase
-        .rpc('get_onboarding_progress', { user_id: user.id });
+      // Get current tasks
+      const { data: currentData, error: fetchError } = await supabase
+        .from('profiles')
+        .select('completed_onboarding_tasks')
+        .eq('id', user.id)
+        .single();
 
+      if (fetchError) throw fetchError;
+
+      // Update tasks array
       const updatedTasks = Array.from(new Set([
-        ...(currentData as OnboardingData)?.completed_tasks || [],
+        ...(currentData?.completed_onboarding_tasks || []),
         taskId
       ]));
 
+      // Update the profile with new tasks
       const { error: updateError } = await supabase
-        .rpc('update_onboarding_progress', { 
-          p_user_id: user.id,
-          p_completed_tasks: updatedTasks,
-          p_is_completed: updatedTasks.length === tasks.length
-        });
+        .from('profiles')
+        .update({ 
+          completed_onboarding_tasks: updatedTasks,
+          is_onboarded: updatedTasks.length === tasks.length
+        })
+        .eq('id', user.id);
 
       if (updateError) throw updateError;
 
