@@ -14,7 +14,7 @@ export default function Integrations() {
         <main className="p-6">
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-2">Integrations</h2>
-            <p className="text-gray-600 text-sm mb-6">Connect your financial, e-commerce, marketplace, CRM platforms and payment providers for comprehensive profit audits.</p>
+            <p className="text-gray-600 text-sm mb-6">Connect your financial, e-commerce, marketplace, CRM and payment providers for comprehensive profit audits.</p>
             <Tabs defaultValue="financial" className="space-y-6">
               <TabsList>
                 <TabsTrigger value="financial">Financial</TabsTrigger>
