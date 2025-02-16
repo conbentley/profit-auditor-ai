@@ -16,8 +16,29 @@ export function AuthForm() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
 
+  const validateForm = () => {
+    if (isSignUp && !fullName.trim()) {
+      toast.error("Please enter your full name");
+      return false;
+    }
+    if (!email.trim()) {
+      toast.error("Please enter your email");
+      return false;
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -31,11 +52,12 @@ export function AuthForm() {
       }
 
       if (isSignUp) {
-        toast.success("Check your email to confirm your account");
+        toast.success("Account created successfully! Please check your email to confirm your account.");
       } else {
         toast.success("Signed in successfully");
       }
     } catch (error) {
+      console.error("Auth error:", error);
       toast.error("An unexpected error occurred");
     } finally {
       setIsLoading(false);
@@ -61,6 +83,7 @@ export function AuthForm() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required={isSignUp}
+              autoComplete="name"
             />
           </div>
         )}
@@ -73,6 +96,7 @@ export function AuthForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="email"
           />
         </div>
         <div className="space-y-2">
@@ -83,6 +107,8 @@ export function AuthForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete={isSignUp ? "new-password" : "current-password"}
+            minLength={6}
           />
         </div>
         <Button type="submit" className="w-full" disabled={isLoading}>
