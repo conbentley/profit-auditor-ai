@@ -216,7 +216,7 @@ const AuditHistory = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="text-lg font-medium">
-                      Audit Report - {format(new Date(audit.audit_date), 'MMMM d, yyyy')}
+                      Audit Report - {format(new Date(audit.audit_date), 'MMMM yyyy')}
                     </h3>
                     <p className="text-sm text-gray-500 mt-1">
                       Generated on {format(new Date(audit.created_at), 'MM/dd/yyyy HH:mm')}
