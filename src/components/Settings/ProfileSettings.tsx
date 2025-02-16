@@ -1,24 +1,38 @@
-
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ProfileSettings = () => {
-  const { settings, updateSettings, isUpdating } = useUserSettings();
+  const { settings, updateSettings, isUpdating, isLoading } = useUserSettings();
   const [formData, setFormData] = useState({
-    full_name: settings?.full_name || '',
-    company_name: settings?.company_name || '',
-    phone_number: settings?.phone_number || '',
-    job_title: settings?.job_title || '',
-    company_website: settings?.company_website || '',
-    bio: settings?.bio || '',
-    city: settings?.city || '',
-    country: settings?.country || ''
+    full_name: '',
+    company_name: '',
+    phone_number: '',
+    job_title: '',
+    company_website: '',
+    bio: '',
+    city: '',
+    country: ''
   });
+
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        full_name: settings.full_name || '',
+        company_name: settings.company_name || '',
+        phone_number: settings.phone_number || '',
+        job_title: settings.job_title || '',
+        company_website: settings.company_website || '',
+        bio: settings.bio || '',
+        city: settings.city || '',
+        country: settings.country || ''
+      });
+    }
+  }, [settings]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -27,10 +41,11 @@ const ProfileSettings = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updateSettings(formData);
+    console.log("Submitting form data:", formData);
+    updateSettings(formData);
   };
 
-  if (!settings) {
+  if (isLoading) {
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center h-64">
@@ -51,25 +66,25 @@ const ProfileSettings = () => {
         <TabsContent value="view" className="space-y-6">
           <div className="grid gap-6">
             <div className="space-y-4">
-              <h3 className="text-2xl font-semibold">{settings.full_name || 'Name not set'}</h3>
-              <p className="text-muted-foreground">{settings.bio || 'No bio available'}</p>
+              <h3 className="text-2xl font-semibold">{settings?.full_name || 'Name not set'}</h3>
+              <p className="text-muted-foreground">{settings?.bio || 'No bio available'}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <h4 className="font-medium text-sm">Professional Details</h4>
                 <div className="space-y-1">
-                  <p><span className="text-muted-foreground">Company:</span> {settings.company_name || 'Not specified'}</p>
-                  <p><span className="text-muted-foreground">Role:</span> {settings.job_title || 'Not specified'}</p>
-                  <p><span className="text-muted-foreground">Website:</span> {settings.company_website || 'Not specified'}</p>
+                  <p><span className="text-muted-foreground">Company:</span> {settings?.company_name || 'Not specified'}</p>
+                  <p><span className="text-muted-foreground">Role:</span> {settings?.job_title || 'Not specified'}</p>
+                  <p><span className="text-muted-foreground">Website:</span> {settings?.company_website || 'Not specified'}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <h4 className="font-medium text-sm">Contact Information</h4>
                 <div className="space-y-1">
-                  <p><span className="text-muted-foreground">Phone:</span> {settings.phone_number || 'Not specified'}</p>
-                  <p><span className="text-muted-foreground">Location:</span> {settings.city && settings.country ? `${settings.city}, ${settings.country}` : 'Not specified'}</p>
+                  <p><span className="text-muted-foreground">Phone:</span> {settings?.phone_number || 'Not specified'}</p>
+                  <p><span className="text-muted-foreground">Location:</span> {settings?.city && settings?.country ? `${settings.city}, ${settings.country}` : 'Not specified'}</p>
                 </div>
               </div>
             </div>

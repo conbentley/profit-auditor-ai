@@ -39,30 +39,6 @@ export interface UserSettings {
   api_usage_stats: Record<string, any>;
 }
 
-const defaultSettings: Partial<UserSettings> = {
-  email: null,
-  full_name: null,
-  company_name: null,
-  audit_frequency: 'on_demand',
-  email_frequency: 'instant',
-  email_notifications: true,
-  in_app_notifications: true,
-  sms_notifications: false,
-  ai_explanation_detail: 'intermediate',
-  dashboard_layout: 'grid',
-  theme: 'system',
-  language: 'en',
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  two_factor_enabled: false,
-  data_sharing_enabled: false,
-  integrations: {},
-  kpi_thresholds: {},
-  industry_benchmarks: {},
-  target_kpis: {},
-  api_keys: {},
-  api_usage_stats: {}
-};
-
 export function useUserSettings() {
   const queryClient = useQueryClient();
 
@@ -80,7 +56,10 @@ export function useUserSettings() {
         .eq('user_id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching settings:", error);
+        throw error;
+      }
 
       console.log("Current settings:", data);
 
@@ -88,20 +67,22 @@ export function useUserSettings() {
         console.log("No settings found, creating default settings");
         const { data: newSettings, error: createError } = await supabase
           .from('user_settings')
-          .insert({ 
+          .insert([{ 
             user_id: user.id,
             email: user.email,
-            full_name: user.user_metadata?.full_name || null,
-            ...defaultSettings
-          })
+            full_name: user.user_metadata?.full_name || null
+          }])
           .select('*')
           .single();
 
-        if (createError) throw createError;
-        return newSettings as unknown as UserSettings;
+        if (createError) {
+          console.error("Error creating settings:", createError);
+          throw createError;
+        }
+        return newSettings as UserSettings;
       }
 
-      return data as unknown as UserSettings;
+      return data as UserSettings;
     }
   });
 
@@ -112,15 +93,23 @@ export function useUserSettings() {
 
       console.log("Updating settings with:", newSettings);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('user_settings')
         .update(newSettings)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select()
+        .single();
 
       if (error) {
         console.error("Error updating settings:", error);
         throw error;
       }
+
+      if (!data) {
+        throw new Error("No data returned after update");
+      }
+
+      return data;
     },
     onSuccess: () => {
       console.log("Settings updated successfully");
