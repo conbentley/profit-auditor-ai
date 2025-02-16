@@ -8,7 +8,7 @@ export interface UserSettings {
   user_id: string;
   email: string | null;
   full_name: string | null;
-  company_name: string | null;  // This is now correctly marked as optional
+  company_name: string | null;  // This is required but can be null
   company_website?: string | null;  // Optional
   job_title: string | null;
   phone_number: string | null;
@@ -65,11 +65,11 @@ export function useUserSettings() {
 
       if (!data) {
         console.log("No settings found, creating default settings");
-        const defaultSettings = {
+        const defaultSettings: Omit<UserSettings, 'id'> = {
           user_id: user.id,
           email: user.email,
           full_name: user.user_metadata?.full_name || null,
-          company_name: null,
+          company_name: null,  // Explicitly include this
           company_website: null,
           job_title: null,
           phone_number: null,
@@ -110,6 +110,7 @@ export function useUserSettings() {
           console.error("Error creating settings:", createError);
           throw createError;
         }
+
         return newSettings as UserSettings;
       }
 
