@@ -736,6 +736,7 @@ export type Database = {
             | null
           data_refresh_interval: unknown | null
           data_sharing_enabled: boolean | null
+          email: string | null
           email_frequency:
             | Database["public"]["Enums"]["notification_frequency"]
             | null
@@ -779,6 +780,7 @@ export type Database = {
             | null
           data_refresh_interval?: unknown | null
           data_sharing_enabled?: boolean | null
+          email?: string | null
           email_frequency?:
             | Database["public"]["Enums"]["notification_frequency"]
             | null
@@ -822,6 +824,7 @@ export type Database = {
             | null
           data_refresh_interval?: unknown | null
           data_sharing_enabled?: boolean | null
+          email?: string | null
           email_frequency?:
             | Database["public"]["Enums"]["notification_frequency"]
             | null

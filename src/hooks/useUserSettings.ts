@@ -6,7 +6,8 @@ import { toast } from "sonner";
 export interface UserSettings {
   id: string;
   user_id: string;
-  company_name: string | null; // Made explicitly nullable
+  email: string | null;
+  company_name: string | null;
   company_website: string | null;
   job_title: string | null;
   phone_number: string | null;
@@ -38,6 +39,7 @@ export interface UserSettings {
 }
 
 const defaultSettings: Partial<UserSettings> = {
+  email: null,
   company_name: null,
   audit_frequency: 'on_demand',
   email_frequency: 'instant',
@@ -81,6 +83,7 @@ export function useUserSettings() {
           .from('user_settings')
           .insert({ 
             user_id: user.id,
+            email: user.email,
             ...defaultSettings
           })
           .select('*')
