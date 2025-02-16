@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { Pencil } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 const ProfileSettings = () => {
   const { settings, updateSettings, isUpdating } = useUserSettings();
-  const [profile, setProfile] = useState<{ full_name: string | null }>({ full_name: null });
+  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
+    full_name: '',
     company_name: '',
     phone_number: '',
     job_title: '',
@@ -20,28 +21,11 @@ const ProfileSettings = () => {
     country: '',
   });
 
-  // Fetch profile data
-  useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
-          .single();
-        if (data) {
-          setProfile(data);
-        }
-      }
-    };
-    fetchProfile();
-  }, []);
-
   // Initialize form data with settings when they're loaded
   useEffect(() => {
     if (settings) {
       setFormData({
+        full_name: settings.full_name || '',
         company_name: settings.company_name || '',
         phone_number: settings.phone_number || '',
         job_title: settings.job_title || '',
@@ -55,39 +39,103 @@ const ProfileSettings = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    if (name === 'country') {
-      setFormData(prev => ({ ...prev, [name]: value, city: '' }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const settingsData = {
-      company_name: formData.company_name,
-      phone_number: formData.phone_number,
-      job_title: formData.job_title,
-      company_website: formData.company_website,
-      bio: formData.bio,
-      city: formData.city,
-      country: formData.country,
-    };
-    updateSettings(settingsData);
+    updateSettings(formData);
+    setIsEditing(false);
   };
+
+  if (!settings) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isEditing) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-semibold">Profile Information</h3>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsEditing(true)}
+            className="flex items-center gap-2"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit Profile
+          </Button>
+        </div>
+
+        <Card className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Full Name</p>
+              <p className="font-medium">{settings.full_name || 'Not set'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Email</p>
+              <p className="font-medium">{settings.email || 'Not set'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Company</p>
+              <p className="font-medium">{settings.company_name || 'Not set'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Job Title</p>
+              <p className="font-medium">{settings.job_title || 'Not set'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Phone Number</p>
+              <p className="font-medium">{settings.phone_number || 'Not set'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Company Website</p>
+              <p className="font-medium">{settings.company_website || 'Not set'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Country</p>
+              <p className="font-medium">{settings.country || 'Not set'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">City</p>
+              <p className="font-medium">{settings.city || 'Not set'}</p>
+            </div>
+          </div>
+          
+          {settings.bio && (
+            <div className="mt-4">
+              <p className="text-sm text-gray-500">Bio</p>
+              <p className="font-medium whitespace-pre-wrap">{settings.bio}</p>
+            </div>
+          )}
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-xl font-semibold">Edit Profile</h3>
+        <Button 
+          variant="ghost" 
+          onClick={() => setIsEditing(false)}
+          type="button"
+        >
+          Cancel
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <label htmlFor="full_name" className="text-sm font-medium">Full Name</label>
           <Input
             id="full_name"
             name="full_name"
-            value={profile.full_name || ''}
+            value={formData.full_name}
             onChange={handleChange}
             placeholder="John Doe"
-            disabled
           />
         </div>
 
