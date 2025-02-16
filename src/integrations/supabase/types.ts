@@ -741,6 +741,7 @@ export type Database = {
             | Database["public"]["Enums"]["notification_frequency"]
             | null
           email_notifications: boolean | null
+          full_name: string | null
           id: string
           in_app_notifications: boolean | null
           industry_benchmarks: Json | null
@@ -785,6 +786,7 @@ export type Database = {
             | Database["public"]["Enums"]["notification_frequency"]
             | null
           email_notifications?: boolean | null
+          full_name?: string | null
           id?: string
           in_app_notifications?: boolean | null
           industry_benchmarks?: Json | null
@@ -829,6 +831,7 @@ export type Database = {
             | Database["public"]["Enums"]["notification_frequency"]
             | null
           email_notifications?: boolean | null
+          full_name?: string | null
           id?: string
           in_app_notifications?: boolean | null
           industry_benchmarks?: Json | null

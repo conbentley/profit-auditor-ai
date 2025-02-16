@@ -7,6 +7,7 @@ export interface UserSettings {
   id: string;
   user_id: string;
   email: string | null;
+  full_name: string | null;
   company_name: string | null;
   company_website: string | null;
   job_title: string | null;
@@ -40,6 +41,7 @@ export interface UserSettings {
 
 const defaultSettings: Partial<UserSettings> = {
   email: null,
+  full_name: null,
   company_name: null,
   audit_frequency: 'on_demand',
   email_frequency: 'instant',
@@ -84,6 +86,7 @@ export function useUserSettings() {
           .insert({ 
             user_id: user.id,
             email: user.email,
+            full_name: user.user_metadata?.full_name || null,
             ...defaultSettings
           })
           .select('*')
