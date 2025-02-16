@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,7 @@ export default function OnboardingTasks() {
       id: 'chat',
       title: 'Chat with AI Profit Assistant',
       description: 'Ask questions about your audit and get detailed insights from our AI assistant.',
-      route: '/chat',
+      route: '/ai-profit-chat',
       isCompleted: false,
       requiredTask: 'audit', // This will check both audit and integrations since audit requires integrations
     },
