@@ -8,11 +8,11 @@ export interface UserSettings {
   user_id: string;
   email: string | null;
   full_name: string | null;
-  company_name: string | null;  // This is required but can be null
-  company_website?: string | null;  // Optional
+  company_name: string | null;
+  company_website: string | null;
   job_title: string | null;
   phone_number: string | null;
-  bio?: string | null;  // Optional
+  bio: string | null;
   city: string | null;
   country: string | null;
   timezone: string;
@@ -65,11 +65,12 @@ export function useUserSettings() {
 
       if (!data) {
         console.log("No settings found, creating default settings");
-        const defaultSettings: Omit<UserSettings, 'id'> = {
+        // Ensure all required fields are included in defaultSettings
+        const defaultSettings = {
           user_id: user.id,
           email: user.email,
           full_name: user.user_metadata?.full_name || null,
-          company_name: null,  // Explicitly include this
+          company_name: null,
           company_website: null,
           job_title: null,
           phone_number: null,
@@ -98,7 +99,7 @@ export function useUserSettings() {
           data_sharing_enabled: false,
           api_keys: {},
           api_usage_stats: {}
-        };
+        } satisfies Omit<UserSettings, 'id'>;
 
         const { data: newSettings, error: createError } = await supabase
           .from('user_settings')
@@ -114,7 +115,10 @@ export function useUserSettings() {
         return newSettings as UserSettings;
       }
 
-      return data as UserSettings;
+      return {
+        ...data,
+        company_name: data.company_name || null
+      } as UserSettings;
     }
   });
 
@@ -141,7 +145,10 @@ export function useUserSettings() {
         throw new Error("No data returned after update");
       }
 
-      return data as UserSettings;
+      return {
+        ...data,
+        company_name: data.company_name || null
+      } as UserSettings;
     },
     onSuccess: () => {
       console.log("Settings updated successfully");
