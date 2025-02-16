@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
@@ -63,6 +62,12 @@ serve(async (req) => {
       .gte('date', startDate.toISOString())
       .lte('date', endDate.toISOString());
 
+    // 5. CRM data
+    const { data: crmIntegrations } = await supabase
+      .from('crm_integrations')
+      .select('*')
+      .eq('user_id', user_id);
+
     // Calculate comprehensive metrics
     const revenue = transactions
       ?.filter(t => t.type === 'income')
@@ -115,9 +120,11 @@ serve(async (req) => {
       },
       integrations: {
         payment: paymentIntegrations || [],
+        crm: crmIntegrations || [],
         active_platforms: {
           payment: paymentIntegrations?.filter(i => i.is_active).map(i => i.provider) || [],
-          ecommerce: ecommerceMetrics?.map(m => m.integration_id) || []
+          ecommerce: ecommerceMetrics?.map(m => m.integration_id) || [],
+          crm: crmIntegrations?.filter(i => i.is_active).map(i => i.platform) || []
         }
       }
     };
@@ -152,25 +159,30 @@ serve(async (req) => {
                - Channel effectiveness
                - Customer acquisition costs
                - Cross-platform opportunities
-            5. Integration Optimization:
+            5. CRM Performance:
+               - Customer engagement metrics
+               - Sales pipeline health
+               - Lead conversion rates
+            6. Integration Optimization:
                - Platform utilization
                - Cross-integration opportunities
                - Technical efficiency recommendations
-            6. Risk Analysis:
+            7. Risk Analysis:
                - Platform dependencies
                - Revenue concentration
                - Market exposure
-            7. Strategic Recommendations:
+            8. Strategic Recommendations:
                - Growth opportunities
                - Cost optimization
                - Platform consolidation
                - Market expansion
+               - Customer retention strategies
             
             Return ONLY a JSON object with this exact structure:
             {
               "summary": "Executive summary of comprehensive analysis",
               "kpis": [
-                {"metric": "string", "value": "string", "trend": "string", "category": "financial|ecommerce|marketing|integration"}
+                {"metric": "string", "value": "string", "trend": "string", "category": "financial|ecommerce|marketing|crm|integration"}
               ],
               "recommendations": [
                 {
@@ -178,7 +190,7 @@ serve(async (req) => {
                   "description": "string",
                   "impact": "High/Medium/Low",
                   "difficulty": "Easy/Medium/Hard",
-                  "category": "financial|ecommerce|marketing|integration|strategic",
+                  "category": "financial|ecommerce|marketing|crm|integration|strategic",
                   "priority": 1-5
                 }
               ],
@@ -187,7 +199,7 @@ serve(async (req) => {
                   "type": "risk|opportunity|action",
                   "severity": "High/Medium/Low",
                   "message": "string",
-                  "category": "financial|ecommerce|marketing|integration"
+                  "category": "financial|ecommerce|marketing|crm|integration"
                 }
               ]
             }`
@@ -241,14 +253,16 @@ serve(async (req) => {
             'ecommerce_metrics',
             'ecommerce_sales',
             'payment_integrations',
-            'marketing_performance'
+            'marketing_performance',
+            'crm_integrations'
           ],
           ai_model: 'gpt-4o-mini',
           timestamp: new Date().toISOString(),
           integration_coverage: {
             payment: paymentIntegrations?.length ?? 0,
             ecommerce: ecommerceMetrics?.length ?? 0,
-            marketing: marketingData?.length ?? 0
+            marketing: marketingData?.length ?? 0,
+            crm: crmIntegrations?.length ?? 0
           }
         }
       })
