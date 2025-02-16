@@ -196,105 +196,105 @@ export default function MarketplaceIntegrations() {
         </div>
 
         {platform && (
-          <button
-            type="button"
-            onClick={() => setShowCredentialsGuide(true)}
-            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
-          >
-            <ExternalLink className="w-4 h-4 mr-1" />
-            Find your {platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials
-          </button>
-        )}
+          <>
+            <button
+              type="button"
+              onClick={() => setShowCredentialsGuide(true)}
+              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
+            >
+              <ExternalLink className="w-4 h-4 mr-1" />
+              Find your {platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials
+            </button>
 
-        {isAdmin && (
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="test-mode"
-              checked={isTestMode}
-              onCheckedChange={setIsTestMode}
-            />
-            <Label htmlFor="test-mode">Test Mode</Label>
-          </div>
-        )}
+            {isAdmin && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="test-mode"
+                  checked={isTestMode}
+                  onCheckedChange={setIsTestMode}
+                />
+                <Label htmlFor="test-mode">Test Mode</Label>
+              </div>
+            )}
 
-        {platform && (
-          <div className="space-y-2">
-            <Label htmlFor="region">Region</Label>
-            <Select value={region} onValueChange={setRegion}>
-              <SelectTrigger id="region">
-                <SelectValue placeholder="Select region" />
-              </SelectTrigger>
-              <SelectContent>
-                {REGIONS[platform].map((region) => (
-                  <SelectItem key={region.value} value={region.value}>
-                    {region.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+            <div className="space-y-2">
+              <Label htmlFor="region">Region</Label>
+              <Select value={region} onValueChange={setRegion}>
+                <SelectTrigger id="region">
+                  <SelectValue placeholder="Select region" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REGIONS[platform].map((region) => (
+                    <SelectItem key={region.value} value={region.value}>
+                      {region.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="sellerId">Seller ID</Label>
-          <Input
-            id="sellerId"
-            value={sellerId}
-            onChange={(e) => setSellerId(e.target.value)}
-            placeholder={isTestMode && isAdmin ? "test_seller_123" : `Enter your ${platform || 'marketplace'} Seller ID`}
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="marketplaceId">Marketplace ID</Label>
-          <Input
-            id="marketplaceId"
-            value={marketplaceId}
-            onChange={(e) => setMarketplaceId(e.target.value)}
-            placeholder={isTestMode && isAdmin ? "test_marketplace_123" : `Enter your ${platform || 'marketplace'} ID`}
-            required
-          />
-        </div>
-
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium">Sync Settings</h3>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="syncInventory">Sync Inventory</Label>
-              <Switch
-                id="syncInventory"
-                checked={syncInventory}
-                onCheckedChange={setSyncInventory}
+            <div className="space-y-2">
+              <Label htmlFor="sellerId">Seller ID</Label>
+              <Input
+                id="sellerId"
+                value={sellerId}
+                onChange={(e) => setSellerId(e.target.value)}
+                placeholder={isTestMode && isAdmin ? "test_seller_123" : `Enter your ${platform || 'marketplace'} Seller ID`}
+                required
               />
             </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="syncPricing">Sync Pricing</Label>
-              <Switch
-                id="syncPricing"
-                checked={syncPricing}
-                onCheckedChange={setSyncPricing}
+
+            <div className="space-y-2">
+              <Label htmlFor="marketplaceId">Marketplace ID</Label>
+              <Input
+                id="marketplaceId"
+                value={marketplaceId}
+                onChange={(e) => setMarketplaceId(e.target.value)}
+                placeholder={isTestMode && isAdmin ? "test_marketplace_123" : `Enter your ${platform || 'marketplace'} ID`}
+                required
               />
             </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="syncOrders">Sync Orders</Label>
-              <Switch
-                id="syncOrders"
-                checked={syncOrders}
-                onCheckedChange={setSyncOrders}
-              />
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium">Sync Settings</h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="syncInventory">Sync Inventory</Label>
+                  <Switch
+                    id="syncInventory"
+                    checked={syncInventory}
+                    onCheckedChange={setSyncInventory}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="syncPricing">Sync Pricing</Label>
+                  <Switch
+                    id="syncPricing"
+                    checked={syncPricing}
+                    onCheckedChange={setSyncPricing}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="syncOrders">Sync Orders</Label>
+                  <Switch
+                    id="syncOrders"
+                    checked={syncOrders}
+                    onCheckedChange={setSyncOrders}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
-        </Button>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
+            </Button>
 
-        {isTestMode && isAdmin && (
-          <p className="text-sm text-muted-foreground mt-2">
-            Test mode enabled. No real API calls will be made.
-          </p>
+            {isTestMode && isAdmin && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Test mode enabled. No real API calls will be made.
+              </p>
+            )}
+          </>
         )}
       </form>
 

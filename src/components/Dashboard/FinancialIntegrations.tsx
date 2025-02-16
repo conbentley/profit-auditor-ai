@@ -144,59 +144,61 @@ export default function FinancialIntegrations() {
         </div>
 
         {provider && (
-          <button
-            type="button"
-            onClick={() => setShowCredentialsGuide(true)}
-            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
-          >
-            <ExternalLink className="w-4 h-4 mr-1" />
-            Find your {provider.charAt(0).toUpperCase() + provider.slice(1)} API credentials
-          </button>
-        )}
+          <>
+            <button
+              type="button"
+              onClick={() => setShowCredentialsGuide(true)}
+              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mb-2"
+            >
+              <ExternalLink className="w-4 h-4 mr-1" />
+              Find your {provider.charAt(0).toUpperCase() + provider.slice(1)} API credentials
+            </button>
 
-        {isAdmin && (
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="test-mode"
-              checked={isTestMode}
-              onCheckedChange={setIsTestMode}
-            />
-            <Label htmlFor="test-mode">Test Mode</Label>
-          </div>
-        )}
+            {isAdmin && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="test-mode"
+                  checked={isTestMode}
+                  onCheckedChange={setIsTestMode}
+                />
+                <Label htmlFor="test-mode">Test Mode</Label>
+              </div>
+            )}
 
-        <div className="space-y-2">
-          <Label htmlFor="apiKey">API Key</Label>
-          <Input
-            id="apiKey"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={isTestMode && isAdmin ? "test_api_key" : "Enter API key"}
-            required
-          />
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiKey">API Key</Label>
+              <Input
+                id="apiKey"
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={isTestMode && isAdmin ? "test_api_key" : "Enter API key"}
+                required
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="apiSecret">API Secret</Label>
-          <Input
-            id="apiSecret"
-            type="password"
-            value={apiSecret}
-            onChange={(e) => setApiSecret(e.target.value)}
-            placeholder={isTestMode && isAdmin ? "test_api_secret" : "Enter API secret"}
-            required
-          />
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiSecret">API Secret</Label>
+              <Input
+                id="apiSecret"
+                type="password"
+                value={apiSecret}
+                onChange={(e) => setApiSecret(e.target.value)}
+                placeholder={isTestMode && isAdmin ? "test_api_secret" : "Enter API secret"}
+                required
+              />
+            </div>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
-        </Button>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Connecting..." : `Connect${isTestMode && isAdmin ? ' (Test Mode)' : ''}`}
+            </Button>
 
-        {isTestMode && isAdmin && (
-          <p className="text-sm text-muted-foreground mt-2">
-            Test mode enabled. No real API calls will be made.
-          </p>
+            {isTestMode && isAdmin && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Test mode enabled. No real API calls will be made.
+              </p>
+            )}
+          </>
         )}
       </form>
 
