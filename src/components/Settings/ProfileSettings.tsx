@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const ProfileSettings = () => {
   const { settings, updateSettings, isUpdating, isLoading } = useUserSettings();
   const [formData, setFormData] = useState({
-    full_name: '',
+    email: '',
     company_name: '',
+    full_name: '',
     phone_number: '',
     job_title: '',
     company_website: '',
@@ -23,8 +24,9 @@ const ProfileSettings = () => {
   useEffect(() => {
     if (settings) {
       setFormData({
-        full_name: settings.full_name || '',
+        email: settings.email || '',
         company_name: settings.company_name || '',
+        full_name: settings.full_name || '',
         phone_number: settings.phone_number || '',
         job_title: settings.job_title || '',
         company_website: settings.company_website || '',
@@ -75,6 +77,7 @@ const ProfileSettings = () => {
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Contact Information</h4>
             <div className="space-y-1">
+              <p><span className="text-muted-foreground">Email:</span> {settings?.email || 'Not specified'}</p>
               <p><span className="text-muted-foreground">Phone:</span> {settings?.phone_number || 'Not specified'}</p>
               <p><span className="text-muted-foreground">Location:</span> {settings?.city && settings?.country ? `${settings.city}, ${settings.country}` : 'Not specified'}</p>
             </div>
@@ -87,13 +90,14 @@ const ProfileSettings = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label htmlFor="full_name" className="text-sm font-medium">Full Name</label>
+                  <label htmlFor="email" className="text-sm font-medium">Email</label>
                   <Input
-                    id="full_name"
-                    name="full_name"
-                    value={formData.full_name}
+                    id="email"
+                    name="email"
+                    value={formData.email}
                     onChange={handleChange}
-                    placeholder="John Doe"
+                    placeholder="your.email@example.com"
+                    disabled
                   />
                 </div>
 
@@ -109,6 +113,17 @@ const ProfileSettings = () => {
                 </div>
 
                 <div className="space-y-2">
+                  <label htmlFor="full_name" className="text-sm font-medium">Full Name</label>
+                  <Input
+                    id="full_name"
+                    name="full_name"
+                    value={formData.full_name}
+                    onChange={handleChange}
+                    placeholder="John Doe"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <label htmlFor="job_title" className="text-sm font-medium">Job Title</label>
                   <Input
                     id="job_title"
@@ -120,17 +135,6 @@ const ProfileSettings = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="company_website" className="text-sm font-medium">Company Website</label>
-                  <Input
-                    id="company_website"
-                    name="company_website"
-                    value={formData.company_website}
-                    onChange={handleChange}
-                    placeholder="https://example.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <label htmlFor="phone_number" className="text-sm font-medium">Phone Number</label>
                   <Input
                     id="phone_number"
@@ -138,6 +142,17 @@ const ProfileSettings = () => {
                     value={formData.phone_number}
                     onChange={handleChange}
                     placeholder="+1 (555) 000-0000"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="company_website" className="text-sm font-medium">Company Website (Optional)</label>
+                  <Input
+                    id="company_website"
+                    name="company_website"
+                    value={formData.company_website}
+                    onChange={handleChange}
+                    placeholder="https://example.com"
                   />
                 </div>
 
@@ -165,7 +180,7 @@ const ProfileSettings = () => {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="bio" className="text-sm font-medium">Bio</label>
+                <label htmlFor="bio" className="text-sm font-medium">Bio (Optional)</label>
                 <Textarea
                   id="bio"
                   name="bio"

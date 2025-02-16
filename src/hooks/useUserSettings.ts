@@ -8,11 +8,11 @@ export interface UserSettings {
   user_id: string;
   email: string | null;
   full_name: string | null;
-  company_name: string | null;
-  company_website: string | null;
+  company_name: string | null;  // This is now correctly marked as optional
+  company_website?: string | null;  // Optional
   job_title: string | null;
   phone_number: string | null;
-  bio: string | null;
+  bio?: string | null;  // Optional
   city: string | null;
   country: string | null;
   timezone: string;
@@ -65,33 +65,44 @@ export function useUserSettings() {
 
       if (!data) {
         console.log("No settings found, creating default settings");
+        const defaultSettings = {
+          user_id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || null,
+          company_name: null,
+          company_website: null,
+          job_title: null,
+          phone_number: null,
+          bio: null,
+          city: null,
+          country: null,
+          timezone: 'UTC',
+          avatar_url: null,
+          integrations: {},
+          data_refresh_interval: '1h',
+          audit_frequency: 'on_demand' as const,
+          audit_schedule_time: '09:00',
+          audit_schedule_day: null,
+          kpi_thresholds: {},
+          email_notifications: true,
+          email_frequency: 'daily' as const,
+          in_app_notifications: true,
+          sms_notifications: false,
+          industry_benchmarks: {},
+          target_kpis: {},
+          ai_explanation_detail: 'intermediate' as const,
+          dashboard_layout: 'grid' as const,
+          theme: 'system' as const,
+          language: 'en',
+          two_factor_enabled: false,
+          data_sharing_enabled: false,
+          api_keys: {},
+          api_usage_stats: {}
+        };
+
         const { data: newSettings, error: createError } = await supabase
           .from('user_settings')
-          .insert([{ 
-            user_id: user.id,
-            email: user.email,
-            full_name: user.user_metadata?.full_name || null,
-            company_name: null,
-            company_website: null,
-            job_title: null,
-            phone_number: null,
-            bio: null,
-            city: null,
-            country: null,
-            timezone: 'UTC',
-            data_refresh_interval: '1h',
-            audit_frequency: 'on_demand',
-            audit_schedule_time: '09:00',
-            email_notifications: true,
-            email_frequency: 'daily',
-            in_app_notifications: true,
-            sms_notifications: false,
-            dashboard_layout: 'grid',
-            theme: 'system',
-            language: 'en',
-            two_factor_enabled: false,
-            data_sharing_enabled: false
-          }])
+          .insert([defaultSettings])
           .select('*')
           .single();
 
