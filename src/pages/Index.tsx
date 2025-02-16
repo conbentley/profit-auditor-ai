@@ -4,11 +4,37 @@ import Header from "@/components/Dashboard/Header";
 import Sidebar from "@/components/Dashboard/Sidebar";
 import StatCard from "@/components/Dashboard/StatCard";
 import AuditReport from "@/components/Dashboard/AuditReport";
+import OnboardingTasks from "@/components/Onboarding/OnboardingTasks";
 import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
 import { formatCurrency, formatPercentage } from "@/lib/formatters";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const { data: metricsData, isLoading } = useDashboardMetrics();
+  const [showOnboarding, setShowOnboarding] = useState(true);
+
+  useEffect(() => {
+    async function checkOnboardingStatus() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('onboarding_progress')
+          .select('is_completed')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+        setShowOnboarding(!data.is_completed);
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      }
+    }
+
+    checkOnboardingStatus();
+  }, []);
 
   const metrics = metricsData?.metrics ?? {
     revenue: 0,
@@ -30,6 +56,12 @@ const Index = () => {
       <div className="flex-1">
         <Header />
         <main className="p-6">
+          {showOnboarding ? (
+            <div className="mb-6">
+              <OnboardingTasks />
+            </div>
+          ) : null}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <StatCard
               title="Monthly Revenue"
