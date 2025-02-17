@@ -198,7 +198,7 @@ export default function AIProfitChat() {
         <Header />
         <main className="p-0 md:p-6 mt-16 md:mt-0">
           <Card className="border-0 md:border">
-            <div className="flex justify-between items-center mb-6 px-4 md:px-6 pt-4 md:pt-6 bg-primary">
+            <div className="flex justify-between items-center mb-8 px-4 md:px-6 pt-4 md:pt-6 pb-4 bg-primary">
               <h2 className="text-2xl font-semibold whitespace-nowrap overflow-hidden text-ellipsis text-white">AI Profit Assistant</h2>
               {chatHistory?.messages?.length > 0 && (
                 <Button
