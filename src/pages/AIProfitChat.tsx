@@ -199,16 +199,16 @@ export default function AIProfitChat() {
         <main className="p-0 md:p-6 mt-16 md:mt-0">
           <Card className="border-0 md:border">
             <div className="flex justify-between items-center mb-6 px-4 md:px-6 pt-4 md:pt-6">
-              <h2 className="text-2xl font-semibold">AI Profit Assistant</h2>
+              <h2 className="text-2xl font-semibold whitespace-nowrap overflow-hidden text-ellipsis">AI Profit Assistant</h2>
               {chatHistory?.messages?.length > 0 && (
                 <Button
                   variant="outline"
                   onClick={() => setShowClearConfirm(true)}
-                  className="flex items-center gap-2"
+                  className="md:flex md:items-center md:gap-2 p-2 md:p-2"
                   disabled={updateChat.isPending}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Clear Chat
+                  <span className="hidden md:inline">Clear Chat</span>
                 </Button>
               )}
             </div>
