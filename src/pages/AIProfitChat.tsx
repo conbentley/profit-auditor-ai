@@ -126,6 +126,14 @@ export default function AIProfitChat() {
     }
   });
 
+  // Scroll to bottom when component mounts or when new messages arrive
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollArea = scrollAreaRef.current;
+      scrollArea.scrollTop = scrollArea.scrollHeight;
+    }
+  }, [chatHistory?.messages, isLoadingHistory]);
+
   const handleSendMessage = async () => {
     if (!query.trim()) return;
 
@@ -182,14 +190,6 @@ export default function AIProfitChat() {
       toast.error("Failed to clear chat history");
     }
   };
-
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollArea = scrollAreaRef.current;
-      scrollArea.scrollTop = scrollArea.scrollHeight;
-    }
-  }, [chatHistory?.messages]);
 
   return (
     <div className="flex min-h-screen bg-gray-50">

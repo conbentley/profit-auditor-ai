@@ -14,7 +14,7 @@ export function ChatInput({ query, setQuery, onSend, isLoading }: ChatInputProps
   return (
     <div className="flex gap-2">
       <Input
-        placeholder="Ask about your financial performance..."
+        placeholder="Ask about your financials..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => {
