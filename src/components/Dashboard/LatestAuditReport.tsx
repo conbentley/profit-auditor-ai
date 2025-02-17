@@ -178,19 +178,20 @@ ${recommendationsCSV}
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="space-y-1">
+      <div className="flex flex-col gap-4">
+        <div>
           <h3 className="text-lg font-semibold">Latest Audit Results</h3>
-          <div className="flex items-center text-sm text-muted-foreground">
+          <div className="flex items-center text-sm text-muted-foreground mt-1">
             <Clock className="h-4 w-4 mr-1" />
             Generated on {format(new Date(latestAudit.created_at), "MMM d, yyyy 'at' h:mm a")}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => queryClient.invalidateQueries({ queryKey: ['latest-audit'] })}
+            className="w-full md:w-auto"
           >
             <RefreshCcw className="h-4 w-4 mr-1" />
             Refresh
@@ -199,7 +200,7 @@ ${recommendationsCSV}
             variant="outline"
             onClick={handleExport}
             size="sm"
-            className="gap-2"
+            className="w-full md:w-auto gap-2"
           >
             <Download className="h-4 w-4" />
             Export
@@ -207,7 +208,7 @@ ${recommendationsCSV}
           <Button
             onClick={handleChatWithAI}
             size="sm"
-            className="gap-2"
+            className="w-full md:w-auto gap-2"
           >
             <MessageSquare className="h-4 w-4" />
             AI Assistant

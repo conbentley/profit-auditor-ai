@@ -54,11 +54,12 @@ export default function AuditReport() {
   return (
     <Card className="p-6 space-y-6">
       <div>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <h2 className="text-lg font-semibold">AI Profit Audit</h2>
           <Button
             onClick={generateAudit}
             disabled={isLoading}
+            className="w-full md:w-auto"
           >
             {isLoading ? (
               <>
