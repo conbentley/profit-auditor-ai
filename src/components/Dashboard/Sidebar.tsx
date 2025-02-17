@@ -12,7 +12,6 @@ import {
   MessageSquare,
   Link2,
   Menu,
-  X,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -82,7 +81,7 @@ const Sidebar = () => {
   // Mobile Navigation
   const MobileNav = () => (
     <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between px-3 py-3">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <BarChart3 className="w-5 h-5 text-white" />
@@ -91,25 +90,25 @@ const Sidebar = () => {
         </div>
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Menu className="h-6 w-6" />
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-72">
+          <SheetContent side="left" className="p-0 w-[280px]">
             <ScrollArea className="h-full">
-              <div className="p-6">
-                <div className="flex items-center gap-3 mb-8">
+              <div className="p-4">
+                <div className="flex items-center gap-3 mb-6">
                   <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                     <BarChart3 className="w-5 h-5 text-white" />
                   </div>
                   <span className="font-semibold text-lg">ClearProfit AI</span>
                 </div>
-                <nav className="space-y-2">
+                <nav className="space-y-1">
                   {menuItems.map((item) => (
                     <Link
                       key={item.path}
                       to={item.path}
-                      className="flex items-center gap-3 px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <item.icon className="w-5 h-5 text-gray-600" />
                       <span>{item.label}</span>
