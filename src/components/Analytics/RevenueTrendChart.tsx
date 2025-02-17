@@ -21,11 +21,11 @@ interface RevenueTrendChartProps {
 
 export default function RevenueTrendChart({ data }: RevenueTrendChartProps) {
   return (
-    <Card className="p-6">
+    <Card className="p-6 w-full h-full">
       <h2 className="text-lg font-medium mb-4">Revenue Trend</h2>
-      <div className="h-80">
+      <div className="w-full h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
+          <LineChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="date" />
             <YAxis 

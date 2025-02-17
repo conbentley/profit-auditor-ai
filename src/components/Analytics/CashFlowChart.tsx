@@ -21,11 +21,11 @@ interface CashFlowChartProps {
 
 export default function CashFlowChart({ data }: CashFlowChartProps) {
   return (
-    <Card className="p-6 lg:col-span-2">
+    <Card className="p-6 w-full h-full lg:col-span-2">
       <h2 className="text-lg font-medium mb-4">Cash Flow Analysis</h2>
-      <div className="h-80">
+      <div className="w-full h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <BarChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="date" />
             <YAxis tickFormatter={(value) => formatCurrency(value)} />
