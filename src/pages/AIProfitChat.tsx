@@ -202,13 +202,13 @@ export default function AIProfitChat() {
               <h2 className="text-2xl font-semibold whitespace-nowrap overflow-hidden text-ellipsis text-white">AI Profit Assistant</h2>
               {chatHistory?.messages?.length > 0 && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => setShowClearConfirm(true)}
-                  className="md:flex md:items-center md:gap-2 p-2 md:p-2 bg-white hover:bg-gray-100"
+                  className="md:flex md:items-center md:gap-2 p-2 md:p-2 hover:bg-primary/20"
                   disabled={updateChat.isPending}
                 >
-                  <Trash2 className="h-4 w-4" />
-                  <span className="hidden md:inline">Clear Chat</span>
+                  <Trash2 className="h-4 w-4 text-white" />
+                  <span className="hidden md:inline text-white">Clear Chat</span>
                 </Button>
               )}
             </div>
