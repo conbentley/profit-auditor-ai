@@ -25,7 +25,7 @@ export default function RevenueTrendChart({ data }: RevenueTrendChartProps) {
       <h2 className="text-lg font-medium mb-4">Revenue Trend</h2>
       <div className="w-full h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+          <LineChart data={data} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="date" />
             <YAxis 
