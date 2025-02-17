@@ -197,8 +197,8 @@ export default function AIProfitChat() {
       <div className="flex-1">
         <Header />
         <main className="p-0 md:p-6 mt-16 md:mt-0">
-          <Card className="border-0 md:border">
-            <div className="flex justify-between items-center mb-8 px-4 md:px-6 pt-4 md:pt-6 pb-4 bg-primary">
+          <Card className="border-0 md:border relative">
+            <div className="flex justify-between items-center px-4 md:px-6 pt-4 md:pt-6 pb-4 bg-primary sticky top-0 z-10">
               <h2 className="text-2xl font-semibold whitespace-nowrap overflow-hidden text-ellipsis text-white">AI Profit Assistant</h2>
               {chatHistory?.messages?.length > 0 && (
                 <Button
@@ -215,10 +215,10 @@ export default function AIProfitChat() {
 
             {/* Chat Messages */}
             <ScrollArea 
-              className="h-[600px] px-4 md:px-6 mb-4" 
+              className="h-[600px] px-4 md:px-6" 
               ref={scrollAreaRef}
             >
-              <div className="space-y-4">
+              <div className="space-y-4 pt-4">
                 {!isLoadingHistory && chatHistory?.messages?.map((message, index) => (
                   <ChatMessage key={index} role={message.role}>
                     {message.content}
