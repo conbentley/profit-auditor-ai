@@ -63,7 +63,7 @@ const Header = () => {
   };
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 md:border-b py-4 px-6">
+    <header className="w-full bg-white hidden md:border-b md:border-gray-200 py-4 px-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
         
