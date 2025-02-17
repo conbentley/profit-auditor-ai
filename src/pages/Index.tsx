@@ -64,7 +64,7 @@ const Index = () => {
       <Sidebar />
       <div className="flex-1 w-full">
         <Header />
-        <main className="px-3 py-4 md:p-6 mt-24 md:mt-0 max-w-full overflow-x-hidden">
+        <main className="px-3 py-4 md:p-6 mt-12 md:mt-0 max-w-full overflow-x-hidden">
           {showOnboarding && (
             <div className="mb-4 md:mb-6">
               <OnboardingTasks />
