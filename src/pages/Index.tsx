@@ -35,7 +35,6 @@ const Index = () => {
           return;
         }
 
-        // If data is null or is_onboarded is false/null, show onboarding
         setShowOnboarding(!data?.is_onboarded);
       } catch (error) {
         console.error('Error checking onboarding status:', error);
@@ -65,14 +64,14 @@ const Index = () => {
       <Sidebar />
       <div className="flex-1">
         <Header />
-        <main className="p-6">
+        <main className="p-6 md:p-6 mt-16 md:mt-0">
           {showOnboarding && (
             <div className="mb-6">
               <OnboardingTasks />
             </div>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
             <StatCard
               title="Monthly Revenue"
               value={formatCurrency(metrics.revenue)}
