@@ -196,9 +196,9 @@ export default function AIProfitChat() {
       <Sidebar />
       <div className="flex-1">
         <Header />
-        <main className="p-6">
-          <Card className="p-6">
-            <div className="flex justify-between items-center mb-6">
+        <main className="p-0 md:p-6 mt-16 md:mt-0">
+          <Card className="border-0 md:border">
+            <div className="flex justify-between items-center mb-6 px-4 md:px-6 pt-4 md:pt-6">
               <h2 className="text-2xl font-semibold">AI Profit Assistant</h2>
               {chatHistory?.messages?.length > 0 && (
                 <Button
@@ -215,7 +215,7 @@ export default function AIProfitChat() {
 
             {/* Chat Messages */}
             <ScrollArea 
-              className="h-[600px] pr-4 mb-4" 
+              className="h-[600px] px-4 md:px-6 mb-4" 
               ref={scrollAreaRef}
             >
               <div className="space-y-4">
@@ -235,12 +235,14 @@ export default function AIProfitChat() {
             </ScrollArea>
 
             {/* Chat Input */}
-            <ChatInput
-              query={query}
-              setQuery={setQuery}
-              onSend={handleSendMessage}
-              isLoading={isChatLoading || updateChat.isPending}
-            />
+            <div className="px-4 md:px-6 pb-4 md:pb-6">
+              <ChatInput
+                query={query}
+                setQuery={setQuery}
+                onSend={handleSendMessage}
+                isLoading={isChatLoading || updateChat.isPending}
+              />
+            </div>
           </Card>
         </main>
       </div>
