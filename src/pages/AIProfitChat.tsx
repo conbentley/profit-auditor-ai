@@ -215,10 +215,10 @@ export default function AIProfitChat() {
 
             {/* Chat Messages */}
             <ScrollArea 
-              className="h-[600px] px-4 md:px-6" 
+              className="h-[calc(600px-4rem)] px-4 md:px-6" 
               ref={scrollAreaRef}
             >
-              <div className="space-y-4 pt-4">
+              <div className="space-y-4 pt-4 pb-4">
                 {!isLoadingHistory && chatHistory?.messages?.map((message, index) => (
                   <ChatMessage key={index} role={message.role}>
                     {message.content}
@@ -235,7 +235,7 @@ export default function AIProfitChat() {
             </ScrollArea>
 
             {/* Chat Input */}
-            <div className="px-4 md:px-6 pb-4 md:pb-6">
+            <div className="px-4 md:px-6 py-4 md:py-6 border-t">
               <ChatInput
                 query={query}
                 setQuery={setQuery}
