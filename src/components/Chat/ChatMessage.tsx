@@ -24,6 +24,9 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
       return (
         <div key={pIndex} className="mb-4">
           {lines.map((line, index) => {
+            // Remove any remaining markdown symbols
+            line = line.replace(/[#*]/g, '');
+
             // Format numbers at start of line (e.g. "1.", "2.", etc)
             if (line.match(/^\d+\.\s/)) {
               const [num, ...rest] = line.split(/\.(.+)/)
@@ -49,7 +52,7 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
             }
 
             // Format section headers
-            if (line.startsWith('KPI Analysis:')) {
+            if (line.includes('KPI Analysis:')) {
               return (
                 <h3 key={index} className="font-semibold text-lg mb-3 mt-4">
                   {line}
@@ -58,10 +61,10 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
             }
 
             // Format main headers
-            if (line === 'Business Audit Report' || line === 'Analysis Summary') {
+            if (line.includes('Business Audit Report') || line.includes('Analysis Summary')) {
               return (
                 <h1 key={index} className="font-bold text-2xl mb-4">
-                  {line}
+                  {line.trim()}
                 </h1>
               );
             }
@@ -73,7 +76,7 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
             line = line.replace(/\d+(\.\d+)?%/g, match => `<span class="font-semibold">${match}</span>`);
 
             return (
-              <div key={index} className="mb-2" dangerouslySetInnerHTML={{ __html: line }} />
+              <div key={index} className="mb-2" dangerouslySetInnerHTML={{ __html: line.trim() }} />
             );
           })}
         </div>
