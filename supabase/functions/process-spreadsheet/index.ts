@@ -1,5 +1,5 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
@@ -43,7 +43,7 @@ serve(async (req) => {
     let rows = [];
     let headers = [];
 
-    if (upload.file_type === 'text/csv') {
+    if (upload.file_type === 'csv') {
       const text = await fileData.text();
       const lines = text.split('\n');
       headers = lines[0].split(',').map(header => header.trim());

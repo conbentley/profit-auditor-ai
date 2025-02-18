@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +55,21 @@ const SpreadsheetIntegrations = () => {
     }
   };
 
+  const processUpload = async (uploadId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('process-spreadsheet', {
+        body: { uploadId }
+      });
+
+      if (error) throw error;
+      
+      toast.success('File processed successfully');
+      fetchUploads();
+    } catch (error: any) {
+      toast.error(error.message || 'Error processing file');
+    }
+  };
+
   const handleFileUpload = async () => {
     if (!uploadFile) {
       toast.error("Please select a file to upload");
@@ -87,25 +101,30 @@ const SpreadsheetIntegrations = () => {
       }
 
       // Insert record into spreadsheet_uploads table
-      const { error: dbError } = await supabase.from('spreadsheet_uploads').insert({
+      const { data: uploadData, error: dbError } = await supabase.from('spreadsheet_uploads').insert({
         filename: uploadFile.name,
         file_path: filePath,
         file_type: fileExt || '',
         uploaded_at: new Date().toISOString(),
         processed: false,
         user_id: user.id
-      });
+      }).select().single();
 
       if (dbError) throw dbError;
 
       toast.success("File uploaded successfully");
-      fetchUploads();
       setUploadDialogOpen(false);
       setUploadFile(null);
+
+      // Process the uploaded file
+      if (uploadData) {
+        await processUpload(uploadData.id);
+      }
     } catch (error: any) {
       toast.error(error.message || "Error uploading file");
     } finally {
       setUploading(false);
+      fetchUploads();
     }
   };
 
