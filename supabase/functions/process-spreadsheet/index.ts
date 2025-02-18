@@ -1,7 +1,7 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,122 +9,124 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { uploadId } = await req.json();
+    if (!uploadId) {
+      throw new Error('No upload ID provided');
+    }
 
     // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the uploaded file details
-    const { data: upload, error: uploadError } = await supabaseClient
+    // Get the upload record
+    const { data: upload, error: uploadError } = await supabase
       .from('spreadsheet_uploads')
       .select('*')
       .eq('id', uploadId)
       .single();
 
-    if (uploadError) throw uploadError;
-    if (!upload) throw new Error('Upload not found');
+    if (uploadError || !upload) {
+      throw new Error('Upload not found');
+    }
 
-    // Download the file from storage
-    const { data: fileData, error: fileError } = await supabaseClient.storage
+    // Get the file from storage
+    const { data: fileData, error: fileError } = await supabase
+      .storage
       .from('spreadsheets')
       .download(upload.file_path);
 
-    if (fileError) throw fileError;
+    if (fileError || !fileData) {
+      throw new Error('File not found in storage');
+    }
 
-    // Convert the file to text
+    // Convert the file data to text
     const text = await fileData.text();
     const rows = text.split('\n').map(row => row.split(','));
-
-    // Basic analysis
     const headers = rows[0];
-    const dataRows = rows.slice(1);
+    const data = rows.slice(1).map(row => 
+      Object.fromEntries(headers.map((header, i) => [header, row[i]]))
+    );
 
-    let totalRevenue = 0;
-    let totalCost = 0;
-    let revenueIndex = headers.findIndex(h => h.toLowerCase().includes('revenue'));
-    let costIndex = headers.findIndex(h => h.toLowerCase().includes('cost'));
+    // Analyze with OpenAI
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
 
-    dataRows.forEach(row => {
-      if (revenueIndex >= 0) {
-        totalRevenue += parseFloat(row[revenueIndex]) || 0;
-      }
-      if (costIndex >= 0) {
-        totalCost += parseFloat(row[costIndex]) || 0;
-      }
-    });
-
-    const totalProfit = totalRevenue - totalCost;
-    const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-    const expenseRatio = totalRevenue > 0 ? (totalCost / totalRevenue) * 100 : 0;
-
-    // Generate AI analysis
-    const analysisPrompt = `Analyze this financial data:
-    Total Revenue: ${totalRevenue}
-    Total Cost: ${totalCost}
-    Profit Margin: ${profitMargin}%
-    Expense Ratio: ${expenseRatio}%
-    
-    Provide insights and recommendations.`;
-
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a financial analyst providing insights on spreadsheet data.' },
-          { role: 'user', content: analysisPrompt }
+          {
+            role: 'system',
+            content: `You are a financial auditor AI. Analyze the financial data and provide insights in the following JSON format:
+            {
+              "summary": "Brief overview of the financial data",
+              "metrics": {
+                "total_revenue": number,
+                "total_expenses": number,
+                "profit_margin": number,
+                "expense_ratio": number
+              },
+              "insights": ["Array of key insights"],
+              "recommendations": ["Array of actionable recommendations"]
+            }`
+          },
+          {
+            role: 'user',
+            content: `Analyze this financial data: ${JSON.stringify(data)}`
+          }
         ],
+        temperature: 0.7,
       }),
     });
 
-    const aiData = await openAIResponse.json();
-    const aiAnalysis = aiData.choices[0].message.content;
+    if (!response.ok) {
+      throw new Error('OpenAI API request failed');
+    }
 
-    // Update the spreadsheet_uploads table with analysis results
-    const analysisResults = {
-      total_rows: dataRows.length,
-      financial_metrics: {
-        total_revenue: totalRevenue,
-        total_cost: totalCost,
-        total_profit: totalProfit,
-        profit_margin: profitMargin,
-        expense_ratio: expenseRatio,
-      },
-      ai_analysis: aiAnalysis,
-      processed_at: new Date().toISOString()
-    };
+    const aiResponse = await response.json();
+    const analysis = JSON.parse(aiResponse.choices[0].message.content);
 
-    const { error: updateError } = await supabaseClient
+    // Update the upload record with analysis results
+    const { error: updateError } = await supabase
       .from('spreadsheet_uploads')
       .update({
         processed: true,
-        analysis_results: analysisResults,
+        analysis_results: analysis,
+        analyzed_at: new Date().toISOString(),
       })
       .eq('id', uploadId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      throw updateError;
+    }
 
     return new Response(
-      JSON.stringify({ message: 'Spreadsheet processed successfully', analysisResults }),
+      JSON.stringify({ success: true, analysis }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error processing spreadsheet:', error);
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: error.message || 'Error processing spreadsheet' 
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
