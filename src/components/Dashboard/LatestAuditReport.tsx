@@ -11,6 +11,7 @@ import { AuditMetrics } from "./AuditMetrics";
 import { AuditKPIs } from "./AuditKPIs";
 import { AuditRecommendations } from "./AuditRecommendations";
 import { supabase } from "@/integrations/supabase/client";
+import type { SpreadsheetUpload } from "@/types/spreadsheet";
 
 export function LatestAuditReport() {
   const queryClient = useQueryClient();
@@ -107,7 +108,7 @@ Difficulty: ${rec.difficulty}
   }
 
   // Get the latest spreadsheet analysis
-  const { data: spreadsheetData } = useQuery({
+  const { data: spreadsheetData } = useQuery<SpreadsheetUpload>({
     queryKey: ['latest-spreadsheet'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -123,7 +124,7 @@ Difficulty: ${rec.difficulty}
         .single();
 
       if (error) throw error;
-      return data;
+      return data as SpreadsheetUpload;
     }
   });
 
