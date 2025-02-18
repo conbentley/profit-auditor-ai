@@ -65,6 +65,42 @@ export type Database = {
           },
         ]
       }
+      business_metrics: {
+        Row: {
+          created_at: string
+          expenses: number
+          financial_health: number
+          id: string
+          marketing_performance: number
+          profit_score: number
+          revenue: number
+          user_id: string
+          workflow_efficiency: number
+        }
+        Insert: {
+          created_at?: string
+          expenses?: number
+          financial_health?: number
+          id?: string
+          marketing_performance?: number
+          profit_score?: number
+          revenue?: number
+          user_id: string
+          workflow_efficiency?: number
+        }
+        Update: {
+          created_at?: string
+          expenses?: number
+          financial_health?: number
+          id?: string
+          marketing_performance?: number
+          profit_score?: number
+          revenue?: number
+          user_id?: string
+          workflow_efficiency?: number
+        }
+        Relationships: []
+      }
       chat_history: {
         Row: {
           audit_id: string | null

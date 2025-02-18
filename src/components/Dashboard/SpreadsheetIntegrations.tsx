@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ const SpreadsheetIntegrations = () => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUpload, setSelectedUpload] = useState<SpreadsheetUpload | null>(null);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -71,57 +72,65 @@ const SpreadsheetIntegrations = () => {
   };
 
   const handleFileUpload = async () => {
-    if (!uploadFile) {
-      toast.error("Please select a file to upload");
-      return;
-    }
-
-    const fileExt = uploadFile.name.split('.').pop()?.toLowerCase();
-    if (!['xlsx', 'xls', 'csv'].includes(fileExt || '')) {
-      toast.error("Please upload a valid spreadsheet file (xlsx, xls, or csv)");
+    if (!uploadFiles || uploadFiles.length === 0) {
+      toast.error("Please select files to upload");
       return;
     }
 
     setUploading(true);
+    const uploadPromises = Array.from(uploadFiles).map(async (file) => {
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (!['xlsx', 'xls', 'csv'].includes(fileExt || '')) {
+        throw new Error(`Invalid file type for ${file.name}. Please upload xlsx, xls, or csv files only.`);
+      }
+
+      try {
+        const filePath = `${Date.now()}_${file.name}`;
+
+        // Upload file to storage
+        const { data: storageData, error: storageError } = await supabase.storage
+          .from('spreadsheets')
+          .upload(filePath, file);
+
+        if (storageError) throw storageError;
+
+        // Get the user's ID
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          throw new Error("User not authenticated");
+        }
+
+        // Insert record into spreadsheet_uploads table
+        const { data: uploadData, error: dbError } = await supabase.from('spreadsheet_uploads').insert({
+          filename: file.name,
+          file_path: filePath,
+          file_type: fileExt || '',
+          uploaded_at: new Date().toISOString(),
+          processed: false,
+          user_id: user.id
+        }).select().single();
+
+        if (dbError) throw dbError;
+
+        // Process the uploaded file
+        if (uploadData) {
+          await processUpload(uploadData.id);
+        }
+
+        return uploadData;
+      } catch (error: any) {
+        throw new Error(`Error uploading ${file.name}: ${error.message}`);
+      }
+    });
+
     try {
-      const filePath = `${Date.now()}_${uploadFile.name}`;
-
-      // Upload file to storage
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from('spreadsheets')
-        .upload(filePath, uploadFile);
-
-      if (storageError) throw storageError;
-
-      // Get the user's ID
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
-      // Insert record into spreadsheet_uploads table
-      const { data: uploadData, error: dbError } = await supabase.from('spreadsheet_uploads').insert({
-        filename: uploadFile.name,
-        file_path: filePath,
-        file_type: fileExt || '',
-        uploaded_at: new Date().toISOString(),
-        processed: false,
-        user_id: user.id
-      }).select().single();
-
-      if (dbError) throw dbError;
-
-      toast.success("File uploaded successfully");
+      await Promise.all(uploadPromises);
+      toast.success("All files uploaded and processed successfully");
       setUploadDialogOpen(false);
-      setUploadFile(null);
-
-      // Process the uploaded file
-      if (uploadData) {
-        await processUpload(uploadData.id);
-      }
+      setUploadFiles(null);
     } catch (error: any) {
-      toast.error(error.message || "Error uploading file");
+      toast.error(error.message);
     } finally {
       setUploading(false);
       fetchUploads();
@@ -132,7 +141,7 @@ const SpreadsheetIntegrations = () => {
     <div>
       <h2 className="text-2xl font-semibold mb-4">Spreadsheet Integrations</h2>
       <Button onClick={() => setUploadDialogOpen(true)} className="mb-4">
-        <Upload className="mr-2" /> Upload Spreadsheet
+        <Upload className="mr-2" /> Upload Spreadsheets
       </Button>
 
       <Table>
@@ -165,16 +174,17 @@ const SpreadsheetIntegrations = () => {
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Upload Spreadsheet</DialogTitle>
+            <DialogTitle>Upload Spreadsheets</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="file">Select File</Label>
+              <Label htmlFor="files">Select Files</Label>
               <Input
-                id="file"
+                id="files"
                 type="file"
+                multiple
                 accept=".xlsx,.xls,.csv"
-                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                onChange={(e) => setUploadFiles(e.target.files)}
               />
             </div>
           </div>
@@ -182,9 +192,9 @@ const SpreadsheetIntegrations = () => {
             <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleFileUpload} disabled={!uploadFile || uploading}>
+            <Button onClick={handleFileUpload} disabled={!uploadFiles || uploading}>
               {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Upload
+              Upload and Process
             </Button>
           </DialogFooter>
         </DialogContent>
