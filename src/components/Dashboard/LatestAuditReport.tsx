@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,8 +17,7 @@ export function LatestAuditReport() {
   const navigate = useNavigate();
   const { data: latestAudit, isLoading: isAuditLoading, isError: isAuditError } = useAuditData();
   
-  // Move useQuery hook to component top level
-  const { data: spreadsheetData, isLoading: isSpreadsheetLoading } = useQuery<SpreadsheetUpload>({
+  const { data: spreadsheetData, isLoading: isSpreadsheetLoading } = useQuery({
     queryKey: ['latest-spreadsheet'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -66,7 +64,7 @@ export function LatestAuditReport() {
         }
       };
     },
-    enabled: !isAuditLoading && !isAuditError && !!latestAudit // Only run when audit data is available
+    enabled: !isAuditLoading && !isAuditError && !!latestAudit
   });
 
   const handleViewSpreadsheets = () => {
