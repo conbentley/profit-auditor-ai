@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -36,7 +37,7 @@ interface Recommendation {
   difficulty: string;
 }
 
-interface FinancialAudit {
+interface DatabaseAudit {
   id: string;
   created_at: string;
   user_id: string;
@@ -45,37 +46,6 @@ interface FinancialAudit {
   monthly_metrics: MonthlyMetrics;
   kpis: KPI[];
   recommendations: Recommendation[];
-}
-
-interface DatabaseAudit {
-  id: string;
-  created_at: string;
-  user_id: string;
-  audit_date: string;
-  summary: string;
-  monthly_metrics: {
-    revenue: number;
-    profit_margin: number;
-    expense_ratio: number;
-    audit_alerts: number;
-    previous_month: {
-      revenue: number;
-      profit_margin: number;
-      expense_ratio: number;
-      audit_alerts: number;
-    };
-  };
-  kpis: Array<{
-    metric: string;
-    value: string;
-    trend?: string;
-  }>;
-  recommendations: Array<{
-    title: string;
-    description: string;
-    impact: string;
-    difficulty: string;
-  }>;
 }
 
 export function LatestAuditReport() {
@@ -97,7 +67,22 @@ export function LatestAuditReport() {
         .maybeSingle();
 
       if (error) throw error;
-      return data as DatabaseAudit;
+      
+      if (!data) return null;
+
+      // Ensure the data matches our expected structure
+      const processedData: DatabaseAudit = {
+        id: data.id,
+        created_at: data.created_at,
+        user_id: data.user_id,
+        audit_date: data.audit_date,
+        summary: data.summary,
+        monthly_metrics: data.monthly_metrics as MonthlyMetrics,
+        kpis: data.kpis as KPI[],
+        recommendations: data.recommendations as Recommendation[]
+      };
+
+      return processedData;
     },
     refetchInterval: 30000,
   });
@@ -114,7 +99,7 @@ Executive Summary:
 ${latestAudit.summary}
 
 Monthly Metrics:
-Revenue: £${latestAudit.monthly_metrics.revenue.toFixed(2)}
+Revenue: £${latestAudit.monthly_metrics.revenue.toLocaleString('en-GB', { maximumFractionDigits: 2 })}
 Profit Margin: ${latestAudit.monthly_metrics.profit_margin.toFixed(2)}%
 Expense Ratio: ${latestAudit.monthly_metrics.expense_ratio.toFixed(2)}%
 
