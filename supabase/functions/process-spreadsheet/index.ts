@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
@@ -24,19 +23,31 @@ interface ProductMetrics {
 }
 
 function identifyColumns(headers: string[]): ColumnType[] {
+  console.log('Attempting to identify columns from headers:', headers);
+  
   return headers.map((header, index) => {
-    const headerLower = header.toLowerCase();
+    const headerLower = header.toLowerCase().trim();
+    console.log(`Analyzing header: "${headerLower}" at index ${index}`);
     
-    if (headerLower.includes('product') || headerLower.includes('item') || headerLower.includes('name')) {
+    if (
+      headerLower.includes('product') || 
+      headerLower.includes('item') || 
+      headerLower.includes('name') ||
+      headerLower.includes('description') ||
+      headerLower.includes('sku') ||
+      headerLower.includes('goods')
+    ) {
+      console.log(`Found product name column: "${header}"`);
       return { type: 'product_name', index };
     }
-    if (headerLower.includes('units') || headerLower.includes('quantity') || headerLower.includes('sold')) {
+    
+    if (headerLower.includes('units') || headerLower.includes('quantity') || headerLower.includes('sold') || headerLower.includes('qty')) {
       return { type: 'units', index };
     }
-    if (headerLower.includes('sale price') || headerLower.includes('unit price')) {
+    if (headerLower.includes('sale price') || headerLower.includes('unit price') || headerLower.includes('selling price') || headerLower.match(/price(?!\s*cost)/)) {
       return { type: 'sale_price', index };
     }
-    if (headerLower.includes('cost price') || headerLower.includes('unit cost')) {
+    if (headerLower.includes('cost price') || headerLower.includes('unit cost') || headerLower.includes('buying price')) {
       return { type: 'cost_price', index };
     }
     if (headerLower.includes('date') || headerLower.includes('period')) {
@@ -45,7 +56,7 @@ function identifyColumns(headers: string[]): ColumnType[] {
     if (headerLower.includes('category') || headerLower.includes('type')) {
       return { type: 'category', index };
     }
-    if (headerLower.includes('total revenue') || headerLower.includes('revenue')) {
+    if (headerLower.includes('total revenue') || headerLower.includes('revenue') || headerLower.includes('sales')) {
       return { type: 'revenue', index };
     }
     if (headerLower.includes('total cost') || headerLower.includes('cost')) {
@@ -94,7 +105,6 @@ function generateInsights(productMetrics: ProductMetrics[], totalRevenue: number
     ),
   ];
 
-  // Add recommendations
   const lowMarginProducts = productMetrics.filter(p => p.profitMargin < 20);
   const highVolumeProducts = sortedByUnits.slice(0, 3);
   
@@ -186,29 +196,43 @@ serve(async (req) => {
       throw new Error(`Failed to parse file: ${error.message}`);
     }
 
-    console.log('Headers found:', headers);
+    console.log('Found headers:', headers);
     const columns = identifyColumns(headers);
-    console.log('Column types identified:', columns);
+    console.log('Identified column types:', columns);
+
+    const productNameCol = columns.find(col => col.type === 'product_name');
+    
+    if (!productNameCol) {
+      console.log('No product name column identified, using first column as fallback');
+      columns[0] = { type: 'product_name', index: 0 };
+    }
 
     let totalRevenue = 0;
     let totalCost = 0;
     const productMap = new Map<string, ProductMetrics>();
     const warnings = [];
 
-    const productNameCol = columns.find(col => col.type === 'product_name');
+    if (!productNameCol) {
+      warnings.push('Could not definitively identify product name column, using first column as product names. Please verify data accuracy.');
+    }
+
     const unitsCol = columns.find(col => col.type === 'units');
     const salePriceCol = columns.find(col => col.type === 'sale_price');
     const costPriceCol = columns.find(col => col.type === 'cost_price');
 
-    if (!productNameCol) {
-      throw new Error('Could not identify product name column');
-    }
-
     rows.forEach((row, rowIndex) => {
-      const productName = row[productNameCol.index]?.toString() || 'Unknown Product';
+      const productName = (productNameCol ? row[productNameCol.index] : row[0])?.toString() || `Product ${rowIndex + 1}`;
       const units = unitsCol ? extractNumber(row[unitsCol.index]) : 0;
       const salePrice = salePriceCol ? extractNumber(row[salePriceCol.index]) : 0;
       const costPrice = costPriceCol ? extractNumber(row[costPriceCol.index]) : 0;
+
+      if (rowIndex === 0) {
+        console.log('Sample row data:', {
+          productName,
+          rowData: row,
+          identifiedColumns: columns.map(col => ({ type: col.type, value: row[col.index] }))
+        });
+      }
 
       const revenue = units * salePrice;
       const cost = units * costPrice;
@@ -217,7 +241,6 @@ serve(async (req) => {
       totalRevenue += revenue;
       totalCost += cost;
 
-      // Update product metrics
       if (!productMap.has(productName)) {
         productMap.set(productName, {
           name: productName,
@@ -262,7 +285,6 @@ serve(async (req) => {
       processed_at: new Date().toISOString()
     };
 
-    // Update the database with results
     const { error: updateError } = await supabaseAdmin
       .from('spreadsheet_uploads')
       .update({
@@ -278,7 +300,6 @@ serve(async (req) => {
       throw new Error(`Failed to save analysis results: ${updateError.message}`);
     }
 
-    // Trigger audit update
     try {
       await supabaseAdmin.functions.invoke('generate-audit', {
         body: { 
@@ -298,27 +319,18 @@ serve(async (req) => {
   } catch (error) {
     console.error('Processing error:', error);
     
-    try {
-      const supabaseAdmin = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
-      
-      await supabaseAdmin
-        .from('spreadsheet_uploads')
-        .update({
-          processed: false,
-          processing_error: error.message,
-          analyzed_at: new Date().toISOString()
-        })
-        .eq('id', req.uploadId);
-    } catch (updateError) {
-      console.error('Failed to update error status:', updateError);
-    }
-
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        error: error.message,
+        details: "If the error persists, please ensure your spreadsheet has clear column headers for product names, quantities, and prices."
+      }),
+      { 
+        status: 500, 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
   }
 });
