@@ -145,6 +145,12 @@ export default function AIProfitChat() {
 
     setIsUploading(true);
     try {
+      // Get the current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication required');
+      }
+
       const formData = new FormData();
       formData.append('file', file);
 
@@ -158,14 +164,17 @@ export default function AIProfitChat() {
 
       if (storageError) throw storageError;
 
-      // Create spreadsheet upload record
+      // Create spreadsheet upload record with user_id
       const { data: uploadData, error: uploadError } = await supabase
         .from('spreadsheet_uploads')
         .insert({
+          user_id: user.id,
           filename: file.name,
           file_path: filePath,
           file_type: fileExt,
-          processed: false
+          processed: false,
+          metadata: {},
+          data_summary: {}
         })
         .select()
         .single();
