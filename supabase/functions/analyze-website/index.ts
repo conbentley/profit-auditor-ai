@@ -43,74 +43,119 @@ serve(async (req) => {
       throw new Error('Firecrawl API key not configured')
     }
 
-    console.log('Initiating Firecrawl scan with API key:', firecrawlApiKey.substring(0, 4) + '...')
+    console.log('Initiating Firecrawl scan...')
     
-    const firecrawlResponse = await fetch('https://api.firecrawl.com/crawl', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${firecrawlApiKey}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'Supabase Edge Function'
-      },
-      body: JSON.stringify({
-        url,
-        limit: 100,
-        scrapeOptions: {
-          formats: ['markdown', 'html'],
-        }
+    // Create the request with timeout
+    const controller = new AbortController()
+    const timeout = setTimeout(() => {
+      controller.abort()
+    }, 30000) // 30 second timeout
+
+    try {
+      const firecrawlResponse = await fetch('https://api.firecrawl.com/crawl', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${firecrawlApiKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'Supabase Edge Function'
+        },
+        body: JSON.stringify({
+          url,
+          limit: 100,
+          scrapeOptions: {
+            formats: ['markdown', 'html'],
+          }
+        }),
+        signal: controller.signal,
       })
-    })
 
-    if (!firecrawlResponse.ok) {
-      const errorText = await firecrawlResponse.text()
-      console.error('Firecrawl API error:', {
-        status: firecrawlResponse.status,
-        statusText: firecrawlResponse.statusText,
-        error: errorText
-      })
-      throw new Error(`Firecrawl API error: ${firecrawlResponse.status} - ${errorText}`)
-    }
+      clearTimeout(timeout)
 
-    const websiteData = await firecrawlResponse.json()
-    console.log('Website scan completed successfully')
+      if (!firecrawlResponse.ok) {
+        const errorText = await firecrawlResponse.text()
+        console.error('Firecrawl API error:', {
+          status: firecrawlResponse.status,
+          statusText: firecrawlResponse.statusText,
+          error: errorText
+        })
+        throw new Error(`Firecrawl API error: ${firecrawlResponse.status} - ${errorText}`)
+      }
 
-    // 2. Store scan results
-    const { error: dbError } = await supabaseClient
-      .from('website_analysis')
-      .upsert({
+      const websiteData = await firecrawlResponse.json()
+      console.log('Website scan completed successfully')
+
+      // 2. Store scan results with mock data if the scan fails
+      const analysisData = {
         user_id: userId,
         url: url,
         website_type: websiteType,
         auto_scan: autoScan,
-        raw_scan_data: websiteData,
+        raw_scan_data: websiteData || {},
         last_scanned: new Date().toISOString(),
         seo_metrics: {
-          title: websiteData.title || '',
-          description: websiteData.description || '',
-          keywords: websiteData.keywords || [],
+          title: websiteData?.title || url,
+          description: websiteData?.description || 'Website analysis pending',
+          keywords: websiteData?.keywords || [],
         }
-      })
-
-    if (dbError) {
-      console.error('Error storing analysis:', dbError)
-      throw dbError
-    }
-
-    console.log('Analysis results stored successfully')
-
-    // Return success response
-    return new Response(
-      JSON.stringify({
-        status: 'completed',
-        message: 'Website analysis completed successfully'
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    )
+
+      const { error: dbError } = await supabaseClient
+        .from('website_analysis')
+        .upsert(analysisData)
+
+      if (dbError) {
+        console.error('Error storing analysis:', dbError)
+        throw dbError
+      }
+
+      console.log('Analysis results stored successfully')
+
+      return new Response(
+        JSON.stringify({
+          status: 'completed',
+          message: 'Website analysis completed successfully'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+
+    } catch (fetchError) {
+      clearTimeout(timeout)
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Request timeout - Firecrawl API took too long to respond')
+      }
+      throw fetchError
+    }
 
   } catch (error) {
     console.error('Error in analyze-website function:', error)
+    
+    // Create a basic analysis entry even if the scan fails
+    try {
+      const { error: fallbackError } = await supabaseClient
+        .from('website_analysis')
+        .upsert({
+          user_id: userId,
+          url: url,
+          website_type: websiteType,
+          auto_scan: autoScan,
+          last_scanned: new Date().toISOString(),
+          seo_metrics: {
+            title: url,
+            description: 'Website analysis failed - will retry later',
+            keywords: [],
+          }
+        })
+
+      if (fallbackError) {
+        console.error('Error storing fallback analysis:', fallbackError)
+      }
+    } catch (fallbackError) {
+      console.error('Error in fallback storage:', fallbackError)
+    }
+
     return new Response(
       JSON.stringify({ 
         error: 'Failed to analyze website',
