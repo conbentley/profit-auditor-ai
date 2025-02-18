@@ -1,9 +1,8 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Trash2, Upload } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Dashboard/Header";
@@ -29,7 +28,6 @@ interface ChatHistory {
   current_spreadsheet_id?: string | null;
 }
 
-// Safely converts raw JSON data into ChatMessage array
 function parseMessages(rawMessages: Json): ChatMessage[] {
   if (!Array.isArray(rawMessages)) return [];
   
@@ -63,7 +61,6 @@ export default function AIProfitChat() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch latest chat history
   const { data: chatHistory, isLoading: isLoadingHistory } = useQuery({
     queryKey: ['chat-history'],
     queryFn: async () => {
@@ -89,7 +86,6 @@ export default function AIProfitChat() {
     }
   });
 
-  // Create or update chat history
   const updateChat = useMutation({
     mutationFn: async (messages: ChatMessage[]) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -136,7 +132,6 @@ export default function AIProfitChat() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     const fileExt = file.name.split('.').pop()?.toLowerCase();
     if (!['xlsx', 'xls', 'csv'].includes(fileExt || '')) {
       toast.error('Please upload only Excel or CSV files');
@@ -145,7 +140,6 @@ export default function AIProfitChat() {
 
     setIsUploading(true);
     try {
-      // Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         throw new Error('Authentication required');
@@ -154,7 +148,6 @@ export default function AIProfitChat() {
       const formData = new FormData();
       formData.append('file', file);
 
-      // Upload file to storage
       const timestamp = new Date().toISOString();
       const filePath = `${timestamp}_${file.name}`;
       
@@ -164,7 +157,6 @@ export default function AIProfitChat() {
 
       if (storageError) throw storageError;
 
-      // Create spreadsheet upload record with user_id
       const { data: uploadData, error: uploadError } = await supabase
         .from('spreadsheet_uploads')
         .insert({
@@ -181,14 +173,12 @@ export default function AIProfitChat() {
 
       if (uploadError) throw uploadError;
 
-      // Process the spreadsheet
       const { error: processError } = await supabase.functions.invoke('process-spreadsheet', {
         body: { uploadId: uploadData.id }
       });
 
       if (processError) throw processError;
 
-      // Update chat with file upload message
       const newMessages = [
         ...(chatHistory?.messages || []),
         { 
@@ -278,29 +268,9 @@ export default function AIProfitChat() {
         <Header />
         <main className="p-0 md:p-6 mt-16 md:mt-0">
           <Card className="border-0 md:border relative">
-            <div className="flex justify-between items-center px-4 md:px-6 pt-4 md:pt-6 pb-4 bg-primary sticky top-0 z-10">
+            <div className="flex justify-between items-center px-4 md:px-6 pt-4 md:pt-6 pb-4 bg-primary sticky md:relative top-0 z-10">
               <h2 className="text-2xl font-semibold whitespace-nowrap overflow-hidden text-ellipsis text-white">AI Profit Assistant</h2>
               <div className="flex gap-2">
-                <Input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  accept=".xlsx,.xls,.csv"
-                  className="hidden"
-                />
-                <Button
-                  variant="ghost"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="md:flex md:items-center md:gap-2 p-2 md:p-2 hover:bg-primary/20"
-                  disabled={isUploading}
-                >
-                  {isUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                  ) : (
-                    <Upload className="h-4 w-4 text-white" />
-                  )}
-                  <span className="hidden md:inline text-white">Upload Spreadsheet</span>
-                </Button>
                 {chatHistory?.messages?.length > 0 && (
                   <Button
                     variant="ghost"
