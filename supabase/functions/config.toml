@@ -1,0 +1,12 @@
+
+# project_id should always be first
+project_id = "maymgnzrxjrrkqsffrsx"
+
+[global]
+rate_limits = []
+
+[global.headers]
+Access-Control-Allow-Origin = "*"
+
+[[global.function.analyze-website]]
+verify_jwt = true
