@@ -5,12 +5,14 @@ import { Task } from "./types";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import confetti from 'canvas-confetti';
 
 export function useOnboardingTasks() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([
     {
       id: 'integrations',
@@ -58,13 +60,26 @@ export function useOnboardingTasks() {
 
       await supabase
         .from('profiles')
-        .update({ completed_onboarding_tasks: completedTasks })
+        .update({ 
+          completed_onboarding_tasks: completedTasks,
+          is_onboarded: taskId === 'chat' && completed ? true : false
+        })
         .eq('id', user.id);
 
       setTasks(prev => prev.map(task => ({
         ...task,
         isCompleted: task.id === taskId ? completed : task.isCompleted
       })));
+
+      // If this is the chat task being completed, trigger celebration
+      if (taskId === 'chat' && completed) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        setShowCompletionDialog(true);
+      }
     } catch (error) {
       console.error('Error updating task status:', error);
     }
@@ -172,8 +187,6 @@ export function useOnboardingTasks() {
             },
           });
 
-          console.log('Generate audit response:', response);
-
           if (response.error) {
             throw response.error;
           }
@@ -194,10 +207,20 @@ export function useOnboardingTasks() {
       } else if (!skipNavigation) {
         navigate(route);
       }
+
+      // If it's the chat task, mark it as completed
+      if (taskId === 'chat') {
+        await updateTaskStatus('chat', true);
+      }
     } catch (error) {
       console.error('Error:', error);
       toast.error('Something went wrong');
     }
+  };
+
+  const handleCompletionClose = () => {
+    setShowCompletionDialog(false);
+    navigate('/dashboard');
   };
 
   useEffect(() => {
@@ -213,6 +236,8 @@ export function useOnboardingTasks() {
     tasks,
     isLoading,
     isGenerating,
-    handleTaskCompletion
+    showCompletionDialog,
+    handleTaskCompletion,
+    handleCompletionClose
   };
 }

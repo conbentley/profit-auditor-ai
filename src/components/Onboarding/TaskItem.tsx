@@ -3,13 +3,15 @@ import { CheckCircle2, Circle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Task } from "./types";
 import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import confetti from 'canvas-confetti';
 
 interface TaskItemProps {
   task: Task;
   isDisabled: boolean;
   isGenerating: boolean;
   requiredTask?: Task | null;
-  onTaskClick: (taskId: string, route: string) => void;
+  onTaskClick: (taskId: string, route: string, skipNavigation?: boolean) => void;
 }
 
 export function TaskItem({ 
@@ -23,7 +25,12 @@ export function TaskItem({
 
   const handleClick = () => {
     if (!task.isCompleted && task.id !== 'audit') {
-      navigate(task.route);
+      if (task.id === 'chat') {
+        onTaskClick(task.id, task.route, true); // Skip navigation for chat
+        navigate(task.route);
+      } else {
+        navigate(task.route);
+      }
     } else {
       onTaskClick(task.id, task.route);
     }
