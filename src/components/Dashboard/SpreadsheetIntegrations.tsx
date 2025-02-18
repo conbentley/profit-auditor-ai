@@ -16,6 +16,7 @@ interface SpreadsheetUpload {
   uploaded_at: string;
   processed: boolean;
   processing_error: string | null;
+  analysis_results?: any;
 }
 
 export default function SpreadsheetIntegrations() {
@@ -35,7 +36,7 @@ export default function SpreadsheetIntegrations() {
 
       const { data, error } = await supabase
         .from('spreadsheet_uploads')
-        .select('id, filename, file_type, uploaded_at, processed, processing_error')
+        .select('*')
         .eq('user_id', user.id)
         .order('uploaded_at', { ascending: false });
 
@@ -46,6 +47,22 @@ export default function SpreadsheetIntegrations() {
       toast.error("Failed to load spreadsheet uploads");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const processUpload = async (uploadId: string) => {
+    try {
+      const response = await supabase.functions.invoke('process-spreadsheet', {
+        body: { uploadId }
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      
+      toast.success("File processed successfully");
+      await fetchUploads();
+    } catch (error) {
+      console.error('Processing error:', error);
+      toast.error("Failed to process file");
     }
   };
 
@@ -67,11 +84,9 @@ export default function SpreadsheetIntegrations() {
     setIsUploading(true);
 
     try {
-      // Create FormData object
       const formData = new FormData();
       formData.append('file', file);
 
-      // Upload file
       const response = await supabase.functions.invoke('upload-spreadsheet', {
         body: formData,
         headers: {
@@ -79,13 +94,14 @@ export default function SpreadsheetIntegrations() {
         },
       });
 
-      console.log('Upload response:', response);
+      if (response.error) throw new Error(response.error.message);
 
-      if (response.error) {
-        throw new Error(response.error.message || 'Upload failed');
+      // Immediately process the uploaded file
+      if (response.data?.upload?.id) {
+        await processUpload(response.data.upload.id);
       }
 
-      toast.success("Spreadsheet uploaded successfully");
+      toast.success("Spreadsheet uploaded and processed successfully");
       event.target.value = '';
       await fetchUploads();
     } catch (error) {
@@ -157,7 +173,7 @@ export default function SpreadsheetIntegrations() {
                 {isUploading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
+                    Uploading & Processing...
                   </>
                 ) : (
                   <>
