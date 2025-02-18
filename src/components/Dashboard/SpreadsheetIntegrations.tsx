@@ -70,6 +70,7 @@ export default function SpreadsheetIntegrations() {
       const formData = new FormData();
       formData.append('file', file);
 
+      // Modified to store file without immediate analysis
       const response = await supabase.functions.invoke('upload-spreadsheet', {
         body: formData,
         headers: {

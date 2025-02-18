@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,19 @@ export default function AuditReport() {
         .delete()
         .eq('user_id', user.id);
 
+      // Get all uploaded spreadsheets
+      const { data: spreadsheets, error: spreadsheetsError } = await supabase
+        .from('spreadsheet_uploads')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('processed', false);
+
+      if (spreadsheetsError) throw spreadsheetsError;
+
+      if (!spreadsheets || spreadsheets.length === 0) {
+        throw new Error("No spreadsheets found. Please upload your data first.");
+      }
+
       // Invalidate queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
@@ -39,6 +53,7 @@ export default function AuditReport() {
           user_id: user.id,
           month: currentDate.getMonth() + 1,
           year: currentDate.getFullYear(),
+          process_spreadsheets: true, // New flag to indicate we should process spreadsheets
         },
       });
 
@@ -48,6 +63,12 @@ export default function AuditReport() {
         console.error('Edge function error:', response.error);
         throw response.error;
       }
+
+      // Mark spreadsheets as processed
+      await supabase
+        .from('spreadsheet_uploads')
+        .update({ processed: true })
+        .eq('user_id', user.id);
 
       // Invalidate queries again after new data is generated
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });

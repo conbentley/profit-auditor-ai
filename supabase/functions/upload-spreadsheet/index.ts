@@ -8,225 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-
-function preprocessSpreadsheetData(data: any[]) {
-  // Log the first row to see the actual column names
-  if (data.length > 0) {
-    console.log('Available columns:', Object.keys(data[0]));
-  }
-
-  return data.map(row => {
-    // Safely extract values with fallbacks for different possible column names
-    const unitsSold = parseFloat(String(
-      row['Units Sold'] || 
-      row['UnitsSold'] || 
-      row['Quantity'] || 
-      row['units_sold'] || 
-      '0'
-    ).replace(/[^0-9.-]+/g, '')) || 0;
-
-    const salePrice = parseFloat(String(
-      row['Sale Price (£)'] ||
-      row['SalePrice'] ||
-      row['Price'] ||
-      row['sale_price'] ||
-      '0'
-    ).replace(/[^0-9.-]+/g, '')) || 0;
-
-    const cogs = parseFloat(String(
-      row['COGS (£)'] ||
-      row['COGS'] ||
-      row['Cost'] ||
-      row['cost_of_goods'] ||
-      '0'
-    ).replace(/[^0-9.-]+/g, '')) || 0;
-
-    const totalRevenue = unitsSold * salePrice;
-    const totalCost = unitsSold * cogs;
-
-    // Log the processed values for debugging
-    console.log('Processed row:', {
-      originalRow: row,
-      processedValues: {
-        unitsSold,
-        salePrice,
-        cogs,
-        totalRevenue,
-        totalCost
-      }
-    });
-
-    return {
-      ...row,
-      'Units Sold': unitsSold,
-      'Sale Price (£)': salePrice,
-      'COGS (£)': cogs,
-      'Total Revenue (£)': totalRevenue,
-      'Total Cost (£)': totalCost
-    };
-  });
-}
-
-async function analyzeWithGPT(data: any[]) {
-  try {
-    const processedData = preprocessSpreadsheetData(data);
-    console.log('Processed data sample:', processedData.slice(0, 2));
-
-    // Calculate basic metrics with safeguards
-    const totals = processedData.reduce((acc, row) => {
-      acc.revenue += Number(row['Total Revenue (£)']) || 0;
-      acc.costs += Number(row['Total Cost (£)']) || 0;
-      acc.units += Number(row['Units Sold']) || 0;
-      return acc;
-    }, { revenue: 0, costs: 0, units: 0 });
-
-    const profit = totals.revenue - totals.costs;
-    const profitMargin = totals.revenue > 0 ? (profit / totals.revenue) * 100 : 0;
-    const expenseRatio = totals.revenue > 0 ? (totals.costs / totals.revenue) * 100 : 0;
-
-    // Format metrics to avoid floating point issues
-    const metrics = {
-      total_revenue: Number(totals.revenue.toFixed(2)),
-      total_costs: Number(totals.costs.toFixed(2)),
-      profit_margin: Number(profitMargin.toFixed(2)),
-      expense_ratio: Number(expenseRatio.toFixed(2))
-    };
-
-    const prompt = `You are a financial analyst. You must return a JSON object that EXACTLY matches this structure. Do not deviate from this format at all:
-
-{
-  "metrics": {
-    "total_revenue": ${metrics.total_revenue},
-    "total_costs": ${metrics.total_costs},
-    "profit_margin": ${metrics.profit_margin},
-    "expense_ratio": ${metrics.expense_ratio}
-  },
-  "summary": "A brief analysis of the financial data",
-  "kpis": [
-    {
-      "metric": "Revenue",
-      "value": "£${metrics.total_revenue.toLocaleString()}",
-      "trend": "Current period"
-    },
-    {
-      "metric": "Profit Margin",
-      "value": "${metrics.profit_margin.toFixed(1)}%",
-      "trend": "Current period"
-    },
-    {
-      "metric": "Units Sold",
-      "value": "${totals.units}",
-      "trend": "Current period"
-    }
-  ],
-  "recommendations": [
-    {
-      "title": "Cost Reduction",
-      "description": "Review supplier contracts to optimize costs",
-      "impact": "High",
-      "difficulty": "Medium",
-      "estimated_savings": 5000
-    }
-  ]
-}
-
-Based on this financial data:
-${JSON.stringify({ metrics, sample_data: processedData.slice(0, 5) }, null, 2)}
-
-Remember:
-1. Keep all numerical values exactly as provided
-2. Only modify the summary text and recommendations
-3. Maintain the exact JSON structure`;
-
-    console.log('Sending prompt to GPT...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a financial analyst. You must return valid JSON that exactly matches the specified format. Do not modify any provided numerical values.'
-          },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.1,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`GPT API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('GPT raw response:', result);
-
-    if (!result.choices?.[0]?.message?.content) {
-      throw new Error('Empty response from GPT');
-    }
-
-    let parsedResponse;
-    try {
-      parsedResponse = JSON.parse(result.choices[0].message.content.trim());
-      console.log('Parsed GPT response:', parsedResponse);
-    } catch (e) {
-      console.error('Failed to parse GPT response:', e);
-      console.log('Raw content:', result.choices[0].message.content);
-      throw new Error('Invalid JSON in GPT response');
-    }
-
-    // Detailed validation of response structure
-    if (!parsedResponse.metrics) {
-      throw new Error('Missing metrics object');
-    }
-    if (typeof parsedResponse.metrics.total_revenue !== 'number') {
-      throw new Error('Invalid total_revenue format');
-    }
-    if (typeof parsedResponse.metrics.total_costs !== 'number') {
-      throw new Error('Invalid total_costs format');
-    }
-    if (typeof parsedResponse.metrics.profit_margin !== 'number') {
-      throw new Error('Invalid profit_margin format');
-    }
-    if (typeof parsedResponse.metrics.expense_ratio !== 'number') {
-      throw new Error('Invalid expense_ratio format');
-    }
-    if (typeof parsedResponse.summary !== 'string' || parsedResponse.summary.trim() === '') {
-      throw new Error('Missing or invalid summary');
-    }
-    if (!Array.isArray(parsedResponse.kpis) || parsedResponse.kpis.length === 0) {
-      throw new Error('Missing or invalid KPIs array');
-    }
-    if (!Array.isArray(parsedResponse.recommendations) || parsedResponse.recommendations.length === 0) {
-      throw new Error('Missing or invalid recommendations array');
-    }
-
-    // Validate specific fields in each KPI
-    parsedResponse.kpis.forEach((kpi: any, index: number) => {
-      if (!kpi.metric || !kpi.value || !kpi.trend) {
-        throw new Error(`Invalid KPI at index ${index}`);
-      }
-    });
-
-    // Validate specific fields in each recommendation
-    parsedResponse.recommendations.forEach((rec: any, index: number) => {
-      if (!rec.title || !rec.description || !rec.impact || !rec.difficulty) {
-        throw new Error(`Invalid recommendation at index ${index}`);
-      }
-    });
-
-    return parsedResponse;
-  } catch (error) {
-    console.error('Error in GPT analysis:', error);
-    throw new Error(`GPT analysis failed: ${error.message}`);
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -255,42 +36,6 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Clean up old data
-    console.log('Cleaning up old data...');
-    await supabase.from('financial_audits').delete().eq('user_id', user.id);
-    
-    const { data: oldUploads } = await supabase
-      .from('spreadsheet_uploads')
-      .select('file_path')
-      .eq('user_id', user.id);
-
-    if (oldUploads) {
-      for (const upload of oldUploads) {
-        if (upload.file_path) {
-          await supabase.storage.from('spreadsheets').remove([upload.file_path]);
-        }
-      }
-      await supabase.from('spreadsheet_uploads').delete().eq('user_id', user.id);
-    }
-
-    // Read and parse file
-    console.log('Reading file...');
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = read(new Uint8Array(arrayBuffer), { type: 'array' });
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = utils.sheet_to_json(worksheet);
-
-    if (data.length === 0) {
-      throw new Error('Spreadsheet is empty');
-    }
-
-    console.log('First row of data:', data[0]);
-
-    // Analyze with GPT
-    console.log('Analyzing with GPT...');
-    const analysis = await analyzeWithGPT(data);
-    console.log('GPT Analysis results:', analysis);
-
     // Store file
     const fileExt = file.name.split('.').pop();
     const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
@@ -301,7 +46,7 @@ serve(async (req) => {
 
     if (storageError) throw storageError;
 
-    // Create upload record
+    // Create upload record (without analysis)
     const { error: uploadError } = await supabase
       .from('spreadsheet_uploads')
       .insert({
@@ -309,45 +54,16 @@ serve(async (req) => {
         filename: file.name,
         file_type: file.type,
         file_path: fileName,
-        processed: true,
-        row_count: data.length,
-        data_summary: analysis.metrics,
-        analyzed_at: new Date().toISOString()
+        processed: false,
+        uploaded_at: new Date().toISOString()
       });
 
     if (uploadError) throw uploadError;
 
-    // Create financial audit
-    const monthlyMetrics = {
-      revenue: analysis.metrics.total_revenue,
-      profit_margin: analysis.metrics.profit_margin,
-      expense_ratio: analysis.metrics.expense_ratio,
-      audit_alerts: 0,
-      previous_month: {
-        revenue: 0,
-        profit_margin: 0,
-        expense_ratio: 0,
-        audit_alerts: 0
-      }
-    };
-
-    const { error: auditError } = await supabase
-      .from('financial_audits')
-      .insert({
-        user_id: user.id,
-        monthly_metrics: monthlyMetrics,
-        audit_date: new Date().toISOString(),
-        summary: analysis.summary,
-        kpis: analysis.kpis,
-        recommendations: analysis.recommendations
-      });
-
-    if (auditError) throw auditError;
-
     return new Response(
       JSON.stringify({ 
-        message: 'File analyzed successfully',
-        analysis 
+        message: 'File uploaded successfully',
+        file_path: fileName
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
