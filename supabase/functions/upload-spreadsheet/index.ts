@@ -1,100 +1,10 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
-import { read, utils } from 'https://esm.sh/xlsx@0.18.5'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-async function analyzeSpreadsheetData(workbook: any) {
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = utils.sheet_to_json(firstSheet);
-  const rowCount = data.length;
-  
-  // Analyze columns and data types
-  const columns = new Set<string>();
-  const dataTypes: Record<string, Set<string>> = {};
-  const numericColumns: Set<string> = new Set();
-  
-  data.forEach((row: any) => {
-    Object.entries(row).forEach(([key, value]) => {
-      columns.add(key);
-      
-      if (!dataTypes[key]) {
-        dataTypes[key] = new Set();
-      }
-      
-      const type = typeof value;
-      dataTypes[key].add(type);
-      
-      // Check if column contains numeric values
-      if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))) {
-        numericColumns.add(key);
-      }
-    });
-  });
-
-  // Calculate basic statistics for numeric columns
-  const statistics: Record<string, any> = {};
-  numericColumns.forEach(column => {
-    const values = data.map((row: any) => Number(row[column])).filter((n: number) => !isNaN(n));
-    if (values.length > 0) {
-      statistics[column] = {
-        min: Math.min(...values),
-        max: Math.max(...values),
-        average: values.reduce((a: number, b: number) => a + b, 0) / values.length,
-        total: values.reduce((a: number, b: number) => a + b, 0)
-      };
-    }
-  });
-
-  // Generate insights
-  const insights = [];
-  
-  // Check for potential financial columns
-  numericColumns.forEach(column => {
-    const columnLower = column.toLowerCase();
-    if (columnLower.includes('amount') || 
-        columnLower.includes('price') || 
-        columnLower.includes('cost') || 
-        columnLower.includes('revenue') || 
-        columnLower.includes('profit')) {
-      insights.push({
-        type: 'financial_column',
-        column,
-        message: `Found potential financial data in column "${column}"`,
-        statistics: statistics[column]
-      });
-    }
-  });
-
-  // Check for date patterns
-  columns.forEach(column => {
-    const columnLower = column.toLowerCase();
-    if (columnLower.includes('date') || 
-        columnLower.includes('time') || 
-        columnLower.includes('period')) {
-      insights.push({
-        type: 'temporal_column',
-        column,
-        message: `Found potential date/time data in column "${column}"`
-      });
-    }
-  });
-
-  return {
-    rowCount,
-    columnCount: columns.size,
-    columns: Array.from(columns),
-    dataTypes: Object.fromEntries(
-      Object.entries(dataTypes).map(([k, v]) => [k, Array.from(v)])
-    ),
-    statistics,
-    insights,
-    sampleData: data.slice(0, 5) // Include first 5 rows as sample
-  };
 }
 
 serve(async (req) => {
@@ -161,11 +71,6 @@ serve(async (req) => {
       );
     }
 
-    // Read and analyze the file
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = read(arrayBuffer);
-    const analysis = await analyzeSpreadsheetData(workbook);
-
     // Create database record
     const { error: dbError } = await supabase
       .from('spreadsheet_uploads')
@@ -174,14 +79,7 @@ serve(async (req) => {
         filename: file.name,
         file_path: filePath,
         file_type: file.type,
-        row_count: analysis.rowCount,
-        analysis_results: analysis,
-        data_summary: {
-          columns: analysis.columns,
-          insights: analysis.insights
-        },
-        processed: true,
-        analyzed_at: new Date().toISOString()
+        processed: false
       });
 
     if (dbError) {
@@ -199,8 +97,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        message: 'File uploaded and analyzed successfully',
-        analysis
+        message: 'File uploaded successfully'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
