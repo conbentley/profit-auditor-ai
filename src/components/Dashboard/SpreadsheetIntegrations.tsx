@@ -96,15 +96,21 @@ export default function SpreadsheetIntegrations() {
 
   const handleDelete = async (id: string) => {
     try {
+      // Optimistically remove from UI
+      setUploads(current => current.filter(upload => upload.id !== id));
+      
       const { error } = await supabase
         .from('spreadsheet_uploads')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        // If deletion fails, restore the item
+        await fetchUploads();
+        throw error;
+      }
 
       toast.success("Spreadsheet deleted successfully");
-      await fetchUploads();
     } catch (error) {
       console.error("Delete failed:", error);
       toast.error("Failed to delete spreadsheet");
