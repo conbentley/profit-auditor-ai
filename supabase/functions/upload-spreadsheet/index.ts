@@ -8,65 +8,131 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Common financial column indicators
+const AMOUNT_INDICATORS = ['amount', 'total', 'sum', 'price', 'revenue', 'income', 'payment'];
+const DATE_INDICATORS = ['date', 'period', 'timestamp'];
+const DESCRIPTION_INDICATORS = ['description', 'details', 'notes', 'memo', 'narrative'];
+
+function identifyColumnType(columnName: string, values: any[]): string {
+  const lowerColumnName = columnName.toLowerCase();
+  
+  // Check if it's a date column
+  if (DATE_INDICATORS.some(indicator => lowerColumnName.includes(indicator))) {
+    return 'date';
+  }
+
+  // Check if it's an amount column
+  if (AMOUNT_INDICATORS.some(indicator => lowerColumnName.includes(indicator))) {
+    return 'amount';
+  }
+
+  // Check if it's a description column
+  if (DESCRIPTION_INDICATORS.some(indicator => lowerColumnName.includes(indicator))) {
+    return 'description';
+  }
+
+  // Check if column contains mostly numbers
+  const numericCount = values.filter(v => !isNaN(Number(v))).length;
+  if (numericCount / values.length > 0.7) {
+    return 'numeric';
+  }
+
+  return 'text';
+}
+
+function parseNumber(value: any): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    // Remove currency symbols and commas, then parse
+    const cleaned = value.replace(/[$£€,]/g, '');
+    return Number(cleaned) || 0;
+  }
+  return 0;
+}
+
 async function analyzeSpreadsheetData(workbook: any) {
   const firstSheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
   const data = utils.sheet_to_json(worksheet);
 
-  const rowCount = data.length;
-  const columnCount = Object.keys(data[0] || {}).length;
+  if (data.length === 0) {
+    throw new Error('Spreadsheet is empty');
+  }
 
-  // Basic financial metrics
-  const numericColumns = {};
+  console.log('Raw data sample:', data.slice(0, 2));
+
+  const columns = Object.keys(data[0]);
   const columnTypes = {};
+  let totalRevenue = 0;
+  let totalCost = 0;
+  let transactionCount = 0;
+  const products = new Set();
 
-  // Analyze each column
-  Object.keys(data[0] || {}).forEach(column => {
+  // Identify column types
+  columns.forEach(column => {
     const values = data.map(row => row[column]);
-    const numericValues = values.filter(v => !isNaN(Number(v)));
-    
-    if (numericValues.length / values.length > 0.7) {
-      numericColumns[column] = numericValues.map(Number);
-      columnTypes[column] = 'numeric';
-    } else {
-      columnTypes[column] = 'text';
+    columnTypes[column] = identifyColumnType(column, values);
+    console.log(`Column ${column} identified as ${columnTypes[column]}`);
+  });
+
+  // Find amount columns
+  const amountColumns = columns.filter(column => 
+    columnTypes[column] === 'amount' || 
+    columnTypes[column] === 'numeric'
+  );
+
+  console.log('Identified amount columns:', amountColumns);
+
+  // Process each row
+  data.forEach(row => {
+    let rowRevenue = 0;
+    let rowCost = 0;
+
+    amountColumns.forEach(column => {
+      const amount = parseNumber(row[column]);
+      
+      // Determine if amount is revenue or cost based on column name and value
+      const columnLower = column.toLowerCase();
+      if (columnLower.includes('revenue') || columnLower.includes('income') || 
+          columnLower.includes('sales') || amount > 0) {
+        rowRevenue += amount;
+      } else if (columnLower.includes('cost') || columnLower.includes('expense') || 
+                 columnLower.includes('payment') || amount < 0) {
+        rowCost += Math.abs(amount);
+      }
+    });
+
+    totalRevenue += rowRevenue;
+    totalCost += rowCost;
+    transactionCount++;
+
+    // Track unique products if product column exists
+    const productColumn = columns.find(col => 
+      col.toLowerCase().includes('product') || 
+      col.toLowerCase().includes('item')
+    );
+    if (productColumn && row[productColumn]) {
+      products.add(row[productColumn]);
     }
   });
 
-  // Calculate basic statistics for numeric columns
-  const statistics = {};
-  Object.entries(numericColumns).forEach(([column, values]: [string, number[]]) => {
-    const sum = values.reduce((a, b) => a + b, 0);
-    const avg = sum / values.length;
-    const max = Math.max(...values);
-    const min = Math.min(...values);
+  const summary = {
+    total_rows: data.length,
+    processed_transactions: transactionCount,
+    total_revenue: totalRevenue,
+    total_cost: totalCost,
+    profit_margin: totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0,
+    unique_products: products.size,
+    column_types: columnTypes,
+    sample_products: Array.from(products).slice(0, 5)
+  };
 
-    statistics[column] = {
-      sum,
-      average: avg,
-      max,
-      min,
-      count: values.length
-    };
-  });
-
-  // Identify potential financial columns
-  const financialIndicators = ['amount', 'revenue', 'cost', 'profit', 'price', 'total'];
-  const potentialFinancialColumns = Object.keys(columnTypes).filter(column => {
-    const lowerColumn = column.toLowerCase();
-    return columnTypes[column] === 'numeric' || 
-           financialIndicators.some(indicator => lowerColumn.includes(indicator));
-  });
+  console.log('Analysis summary:', summary);
 
   return {
-    summary: {
-      rowCount,
-      columnCount,
-      columnTypes,
-      potentialFinancialColumns
-    },
-    statistics,
-    sampleData: data.slice(0, 5) // First 5 rows as sample
+    summary,
+    sample_data: data.slice(0, 5),
+    column_analysis: columnTypes
   };
 }
 
@@ -106,9 +172,9 @@ serve(async (req) => {
     const workbook = read(new Uint8Array(arrayBuffer), { type: 'array' });
     
     // Analyze the data
-    console.log('Starting data analysis...');
+    console.log('Starting data analysis for file:', file.name);
     const analysisResults = await analyzeSpreadsheetData(workbook);
-    console.log('Analysis complete:', analysisResults);
+    console.log('Analysis complete with results:', analysisResults);
 
     // Upload file to storage
     const { data: storageData, error: storageError } = await supabase.storage
@@ -128,11 +194,11 @@ serve(async (req) => {
         file_type: file.type,
         file_path: fileName,
         processed: true,
-        row_count: analysisResults.summary.rowCount,
+        row_count: analysisResults.summary.total_rows,
         data_summary: analysisResults.summary,
         analysis_results: {
-          statistics: analysisResults.statistics,
-          sampleData: analysisResults.sampleData
+          sample_data: analysisResults.sample_data,
+          column_analysis: analysisResults.column_analysis
         },
         analyzed_at: new Date().toISOString()
       })
@@ -145,6 +211,15 @@ serve(async (req) => {
         .remove([fileName]);
       throw uploadError;
     }
+
+    // After successful analysis, trigger an audit generation
+    await supabase.functions.invoke('generate-audit', {
+      body: {
+        user_id: user.id,
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear()
+      }
+    });
 
     return new Response(
       JSON.stringify({ 
