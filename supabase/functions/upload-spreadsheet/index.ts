@@ -13,132 +13,128 @@ interface ProcessedData {
   totalCost: number;
   transactionCount: number;
   transactions: any[];
-  units: number;
+  productSummary: Map<string, { units: number; revenue: number; cost: number }>;
 }
 
-function inferColumnType(headers: string[], values: any[]): Record<string, string> {
-  const columnTypes: Record<string, string> = {};
-  
-  headers.forEach((header, index) => {
-    const sampleValues = values.slice(0, 10).map(row => row[header]);
-    const nonEmptyValues = sampleValues.filter(v => v !== undefined && v !== null && v !== '');
-    
-    if (nonEmptyValues.length === 0) return;
-
-    // Check if majority of values are numbers
-    const numberCount = nonEmptyValues.filter(v => !isNaN(parseFloat(v))).length;
-    if (numberCount / nonEmptyValues.length > 0.7) {
-      if (header.toLowerCase().includes('price') || 
-          header.toLowerCase().includes('revenue') || 
-          header.toLowerCase().includes('cost') ||
-          header.toLowerCase().includes('amount')) {
-        columnTypes[header] = 'money';
-      } else if (header.toLowerCase().includes('quantity') ||
-                 header.toLowerCase().includes('units') ||
-                 header.toLowerCase().includes('count')) {
-        columnTypes[header] = 'quantity';
-      }
-    }
-  });
-
-  return columnTypes;
+function normalizeColumnName(header: string): string {
+  const normalized = header.toLowerCase().trim();
+  if (normalized.includes('sku') || normalized.includes('product')) return 'sku';
+  if (normalized.includes('cogs') || normalized.includes('cost')) return 'cost';
+  if (normalized.includes('revenue') || normalized.includes('sales')) return 'revenue';
+  if (normalized.includes('quantity') || normalized.includes('units')) return 'units';
+  if (normalized.includes('price')) return 'price';
+  return normalized;
 }
 
 function processSpreadsheetData(data: any[]): ProcessedData {
   if (!data || data.length === 0) {
     console.log('No data to process');
-    return { totalRevenue: 0, totalCost: 0, transactionCount: 0, transactions: [], units: 0 };
+    return { 
+      totalRevenue: 0, 
+      totalCost: 0, 
+      transactionCount: 0, 
+      transactions: [], 
+      productSummary: new Map() 
+    };
   }
 
-  const headers = Object.keys(data[0]);
-  console.log('Found headers:', headers);
+  // Map original headers to normalized ones
+  const headerMap = new Map<string, string>();
+  const originalHeaders = Object.keys(data[0]);
+  originalHeaders.forEach(header => {
+    headerMap.set(header, normalizeColumnName(header));
+  });
 
-  const columnTypes = inferColumnType(headers, data);
-  console.log('Inferred column types:', columnTypes);
+  console.log('Column mapping:', Object.fromEntries(headerMap));
 
   let totalRevenue = 0;
   let totalCost = 0;
-  let totalUnits = 0;
   const transactions = [];
-
-  // Find potential money and quantity columns
-  const moneyColumns = Object.entries(columnTypes)
-    .filter(([_, type]) => type === 'money')
-    .map(([header]) => header);
-  
-  const quantityColumns = Object.entries(columnTypes)
-    .filter(([_, type]) => type === 'quantity')
-    .map(([header]) => header);
-
-  console.log('Money columns:', moneyColumns);
-  console.log('Quantity columns:', quantityColumns);
+  const productSummary = new Map<string, { units: number; revenue: number; cost: number }>();
 
   data.forEach((row, index) => {
-    let rowRevenue = 0;
-    let rowCost = 0;
-    let rowUnits = 0;
+    let sku = '';
+    let revenue = 0;
+    let cost = 0;
+    let units = 0;
+    let price = 0;
 
-    // Process money columns
-    moneyColumns.forEach(column => {
-      const value = parseFloat(row[column]) || 0;
-      if (column.toLowerCase().includes('cost') || value < 0) {
-        rowCost += Math.abs(value);
-      } else {
-        rowRevenue += value;
-      }
-    });
+    // Find values using normalized headers
+    for (const [originalHeader, value] of Object.entries(row)) {
+      const normalizedHeader = headerMap.get(originalHeader);
+      if (!normalizedHeader) continue;
 
-    // Process quantity columns
-    quantityColumns.forEach(column => {
-      rowUnits += parseFloat(row[column]) || 0;
-    });
+      const numValue = typeof value === 'string' ? parseFloat(value.replace(/[£$,]/g, '')) : parseFloat(value);
 
-    // If we have a quantity and price but no direct revenue
-    if (rowUnits > 0 && rowRevenue === 0) {
-      const priceColumns = moneyColumns.filter(col => 
-        col.toLowerCase().includes('price') || 
-        col.toLowerCase().includes('rate')
-      );
-      
-      if (priceColumns.length > 0) {
-        const price = parseFloat(row[priceColumns[0]]) || 0;
-        rowRevenue = rowUnits * price;
+      switch (normalizedHeader) {
+        case 'sku':
+          sku = value.toString();
+          break;
+        case 'revenue':
+          if (!isNaN(numValue)) revenue = numValue;
+          break;
+        case 'cost':
+          if (!isNaN(numValue)) cost = numValue;
+          break;
+        case 'units':
+          if (!isNaN(numValue)) units = numValue;
+          break;
+        case 'price':
+          if (!isNaN(numValue)) price = numValue;
+          break;
       }
     }
 
-    // Only count as transaction if we have either revenue, cost, or units
-    if (rowRevenue > 0 || rowCost > 0 || rowUnits > 0) {
-      totalRevenue += rowRevenue;
-      totalCost += rowCost;
-      totalUnits += rowUnits;
+    // Calculate revenue if not directly provided
+    if (revenue === 0 && units > 0 && price > 0) {
+      revenue = units * price;
+    }
+
+    // Only process rows with valid SKU and either revenue or cost
+    if (sku && (revenue > 0 || cost > 0 || units > 0)) {
+      // Update product summary
+      const existing = productSummary.get(sku) || { units: 0, revenue: 0, cost: 0 };
+      productSummary.set(sku, {
+        units: existing.units + (units || 1),
+        revenue: existing.revenue + revenue,
+        cost: existing.cost + cost
+      });
+
+      totalRevenue += revenue;
+      totalCost += cost;
 
       transactions.push({
-        revenue: rowRevenue,
-        cost: rowCost,
-        units: rowUnits,
-        row_index: index + 1,
-        ...row // Keep original data for reference
+        sku,
+        revenue,
+        cost,
+        units: units || 1,
+        price,
+        row_index: index + 1
       });
     }
   });
 
-  const summary = {
+  // Log processing results
+  console.log('Processing summary:', {
+    total_rows: data.length,
+    processed_transactions: transactions.length,
+    total_revenue: totalRevenue,
+    total_cost: totalCost,
+    unique_products: productSummary.size,
+    sample_products: Array.from(productSummary.entries()).slice(0, 3).map(([sku, stats]) => ({
+      sku,
+      units: stats.units,
+      revenue: stats.revenue
+    }))
+  });
+
+  return {
     totalRevenue,
     totalCost,
     transactionCount: transactions.length,
     transactions,
-    units: totalUnits
+    productSummary
   };
-
-  console.log('Processing summary:', {
-    rows_processed: data.length,
-    transactions_found: transactions.length,
-    total_revenue: totalRevenue,
-    total_cost: totalCost,
-    total_units: totalUnits
-  });
-
-  return summary;
 }
 
 serve(async (req) => {
@@ -164,7 +160,7 @@ serve(async (req) => {
       totalCost: 0,
       transactionCount: 0,
       transactions: [],
-      units: 0
+      productSummary: new Map()
     };
 
     for (const sheetName of workbook.SheetNames) {
@@ -177,13 +173,33 @@ serve(async (req) => {
         combinedData.totalRevenue += sheetData.totalRevenue;
         combinedData.totalCost += sheetData.totalCost;
         combinedData.transactionCount += sheetData.transactionCount;
-        combinedData.units += sheetData.units;
         combinedData.transactions = [
           ...combinedData.transactions,
           ...sheetData.transactions.map(t => ({ ...t, sheet: sheetName }))
         ];
+
+        // Merge product summaries
+        sheetData.productSummary.forEach((value, key) => {
+          const existing = combinedData.productSummary.get(key) || { units: 0, revenue: 0, cost: 0 };
+          combinedData.productSummary.set(key, {
+            units: existing.units + value.units,
+            revenue: existing.revenue + value.revenue,
+            cost: existing.cost + value.cost
+          });
+        });
       }
     }
+
+    // Convert product summary to array and sort by units sold
+    const topProducts = Array.from(combinedData.productSummary.entries())
+      .map(([sku, stats]) => ({
+        sku,
+        units: stats.units,
+        revenue: stats.revenue,
+        cost: stats.cost,
+        profit_margin: stats.revenue > 0 ? ((stats.revenue - stats.cost) / stats.revenue) * 100 : 0
+      }))
+      .sort((a, b) => b.units - a.units);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -209,8 +225,7 @@ serve(async (req) => {
           total_revenue: combinedData.totalRevenue,
           total_expenses: combinedData.totalCost,
           transaction_count: combinedData.transactionCount,
-          total_units: combinedData.units,
-          transactions: combinedData.transactions,
+          top_products: topProducts.slice(0, 5),
           profit_margin: combinedData.totalRevenue > 0 
             ? ((combinedData.totalRevenue - combinedData.totalCost) / combinedData.totalRevenue) * 100 
             : 0
@@ -226,7 +241,12 @@ serve(async (req) => {
     console.log('Upload processed successfully:', {
       filename: file.name,
       transactions: combinedData.transactionCount,
-      revenue: combinedData.totalRevenue
+      revenue: combinedData.totalRevenue,
+      top_products: topProducts.slice(0, 3).map(p => ({ 
+        sku: p.sku, 
+        units: p.units,
+        revenue: p.revenue 
+      }))
     });
 
     return new Response(
