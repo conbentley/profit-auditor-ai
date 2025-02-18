@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
@@ -62,12 +61,22 @@ serve(async (req) => {
 
     const { data: upload, error: uploadError } = await supabaseAdmin
       .from('spreadsheet_uploads')
-      .select('*')
+      .select('*, user_id')
       .eq('id', uploadId)
       .single();
 
     if (uploadError || !upload) {
       throw new Error(uploadError?.message || 'Upload not found');
+    }
+
+    const { data: allUploads, error: allUploadsError } = await supabaseAdmin
+      .from('spreadsheet_uploads')
+      .select('*')
+      .eq('user_id', upload.user_id)
+      .eq('processed', true);
+
+    if (allUploadsError) {
+      console.error('Error fetching all uploads:', allUploadsError);
     }
 
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
@@ -110,7 +119,6 @@ serve(async (req) => {
     let transactions = [];
     let warnings = [];
 
-    // Find relevant columns
     const unitsCol = columns.find(col => col.type === 'units');
     const salePriceCol = columns.find(col => col.type === 'sale_price');
     const costPriceCol = columns.find(col => col.type === 'cost_price');
@@ -121,64 +129,83 @@ serve(async (req) => {
       const units = unitsCol ? extractNumber(row[unitsCol.index]) : 0;
       const salePrice = salePriceCol ? extractNumber(row[salePriceCol.index]) : 0;
       const costPrice = costPriceCol ? extractNumber(row[costPriceCol.index]) : 0;
-      const statedRevenue = revenueCol ? extractNumber(row[revenueCol.index]) : 0;
-      const statedCost = costCol ? extractNumber(row[costCol.index]) : 0;
 
-      // Calculate actual values
       const calculatedRevenue = units * salePrice;
       const calculatedCost = units * costPrice;
 
-      // Check for discrepancies
-      if (revenueCol && Math.abs(calculatedRevenue - statedRevenue) > 0.01) {
-        warnings.push(`Row ${rowIndex + 2}: Stated revenue (${statedRevenue}) differs from calculated revenue (${calculatedRevenue})`);
-      }
-      if (costCol && Math.abs(calculatedCost - statedCost) > 0.01) {
-        warnings.push(`Row ${rowIndex + 2}: Stated cost (${statedCost}) differs from calculated cost (${calculatedCost})`);
-      }
-
-      // Use calculated values instead of stated values
-      const rowRevenue = calculatedRevenue || statedRevenue;
-      const rowCost = calculatedCost || statedCost;
-
-      totalRevenue += rowRevenue;
-      totalCost += rowCost;
+      totalRevenue += calculatedRevenue;
+      totalCost += calculatedCost;
 
       transactions.push({
         units,
         salePrice,
         costPrice,
-        calculatedRevenue: rowRevenue,
-        calculatedCost: rowCost,
-        profit: rowRevenue - rowCost,
+        calculatedRevenue,
+        calculatedCost,
+        profit: calculatedRevenue - calculatedCost,
         originalRow: row
       });
     });
 
-    const profit = totalRevenue - totalCost;
-    const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
+    let consolidatedRevenue = totalRevenue;
+    let consolidatedCost = totalCost;
+
+    if (allUploads) {
+      for (const otherUpload of allUploads) {
+        if (otherUpload.id !== uploadId && otherUpload.analysis_results) {
+          consolidatedRevenue += otherUpload.analysis_results.total_revenue || 0;
+          consolidatedCost += otherUpload.analysis_results.total_cost || 0;
+        }
+      }
+    }
+
+    const totalProfit = totalRevenue - totalCost;
+    const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+    const consolidatedProfit = consolidatedRevenue - consolidatedCost;
+    const consolidatedProfitMargin = consolidatedRevenue > 0 ? 
+      (consolidatedProfit / consolidatedRevenue) * 100 : 0;
 
     console.log('Financial calculations:', {
-      totalRevenue,
-      totalCost,
-      profit,
-      profitMargin,
-      warningCount: warnings.length
+      fileRevenue: totalRevenue,
+      fileCost: totalCost,
+      fileProfit: totalProfit,
+      fileProfitMargin: profitMargin,
+      consolidatedRevenue,
+      consolidatedCost,
+      consolidatedProfit,
+      consolidatedProfitMargin
     });
 
     const analysis = {
       total_rows: rows.length,
-      total_revenue: totalRevenue,
-      total_cost: totalCost,
-      profit: profit,
-      profit_margin: profitMargin,
+      file_metrics: {
+        revenue: totalRevenue,
+        cost: totalCost,
+        profit: totalProfit,
+        profit_margin: profitMargin
+      },
+      consolidated_metrics: {
+        revenue: consolidatedRevenue,
+        cost: consolidatedCost,
+        profit: consolidatedProfit,
+        profit_margin: consolidatedProfitMargin
+      },
       headers: headers,
       column_types: columns,
       warnings: warnings,
       insights: [
-        `Total Revenue: £${totalRevenue.toFixed(2)}`,
-        `Total Cost: £${totalCost.toFixed(2)}`,
-        `Total Profit: £${profit.toFixed(2)}`,
-        `Profit Margin: ${profitMargin.toFixed(2)}%`,
+        `File Analysis:`,
+        `- Revenue: £${totalRevenue.toFixed(2)}`,
+        `- Cost: £${totalCost.toFixed(2)}`,
+        `- Profit: £${totalProfit.toFixed(2)}`,
+        `- Profit Margin: ${profitMargin.toFixed(2)}%`,
+        ``,
+        `Consolidated Analysis (All Files):`,
+        `- Total Revenue: £${consolidatedRevenue.toFixed(2)}`,
+        `- Total Cost: £${consolidatedCost.toFixed(2)}`,
+        `- Total Profit: £${consolidatedProfit.toFixed(2)}`,
+        `- Overall Profit Margin: ${consolidatedProfitMargin.toFixed(2)}%`,
         ...warnings
       ],
       sample_data: transactions.slice(0, 3),
@@ -198,6 +225,18 @@ serve(async (req) => {
 
     if (updateError) {
       throw new Error(`Failed to save analysis results: ${updateError.message}`);
+    }
+
+    try {
+      const auditResponse = await supabaseAdmin.functions.invoke('generate-audit', {
+        body: { 
+          user_id: upload.user_id,
+          force_update: true
+        }
+      });
+      console.log('Triggered audit update:', auditResponse);
+    } catch (auditError) {
+      console.error('Error triggering audit update:', auditError);
     }
 
     return new Response(
