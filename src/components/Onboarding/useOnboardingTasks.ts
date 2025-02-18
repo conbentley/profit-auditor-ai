@@ -151,9 +151,19 @@ export function useOnboardingTasks() {
 
       if (taskId === 'audit' && !skipNavigation) {
         setIsGenerating(true);
-        const currentDate = new Date();
         
         try {
+          // Clear existing audit data first
+          await supabase
+            .from('financial_audits')
+            .delete()
+            .eq('user_id', user.id);
+
+          // Invalidate queries to ensure fresh data
+          queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+          queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
+          
+          const currentDate = new Date();
           const response = await supabase.functions.invoke('generate-audit', {
             body: {
               user_id: user.id,
@@ -162,19 +172,22 @@ export function useOnboardingTasks() {
             },
           });
 
+          console.log('Generate audit response:', response);
+
           if (response.error) {
             throw response.error;
           }
 
+          // Invalidate queries again after new data is generated
           queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
           queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
           
-          toast.success('Audit generated successfully');
           await updateTaskStatus('audit', true);
+          toast.success('Audit generated successfully');
           
         } catch (error) {
           console.error('Error generating audit:', error);
-          toast.error('Failed to generate audit');
+          toast.error('Failed to generate audit. Please try again.');
         } finally {
           setIsGenerating(false);
         }

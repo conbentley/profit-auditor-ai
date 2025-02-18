@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,15 +5,27 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { LatestAuditReport } from "./LatestAuditReport";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function AuditReport() {
   const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const generateAudit = async () => {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
+
+      // Clear existing audit data first
+      await supabase
+        .from('financial_audits')
+        .delete()
+        .eq('user_id', user.id);
+
+      // Invalidate queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
 
       const currentDate = new Date();
       console.log('Generating audit for:', {
@@ -37,6 +48,10 @@ export default function AuditReport() {
         console.error('Edge function error:', response.error);
         throw response.error;
       }
+
+      // Invalidate queries again after new data is generated
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
 
       toast.success("Audit report generated successfully");
     } catch (error) {
