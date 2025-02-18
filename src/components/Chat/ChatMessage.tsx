@@ -11,6 +11,10 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
   const formatMessage = (text: string) => {
     if (role !== 'assistant') return text;
 
+    // Pre-process the text to handle markdown-style formatting
+    text = text.replace(/##\s+([^#\n]+)/g, '$1');  // Remove ## and keep the text
+    text = text.replace(/\*\*([^*]+)\*\*/g, '$1'); // Remove ** and keep the text
+
     // Split by double newlines to preserve paragraph spacing
     const paragraphs = text.split('\n\n');
     
@@ -30,10 +34,9 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
               );
             }
 
-            // Format bullet points
+            // Format bullet points with label-value pairs
             if (line.startsWith('- ')) {
               const content = line.substring(2);
-              // Look for label: value patterns in bullet points
               const labelMatch = content.match(/^([^:]+):\s*(.+)$/);
               if (labelMatch) {
                 return (
@@ -42,14 +45,10 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
                   </li>
                 );
               }
-              return (
-                <li key={index} className="ml-4 mb-2">
-                  {content}
-                </li>
-              );
+              return <li key={index} className="ml-4 mb-2">{content}</li>;
             }
 
-            // Format KPI Analysis section
+            // Format section headers
             if (line.startsWith('KPI Analysis:')) {
               return (
                 <h3 key={index} className="font-semibold text-lg mb-3 mt-4">
@@ -58,17 +57,8 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
               );
             }
 
-            // Format Business Audit Report header
-            if (line === 'Business Audit Report') {
-              return (
-                <h1 key={index} className="font-bold text-2xl mb-4">
-                  {line}
-                </h1>
-              );
-            }
-
-            // Format Analysis Summary header
-            if (line === 'Analysis Summary') {
+            // Format main headers
+            if (line === 'Business Audit Report' || line === 'Analysis Summary') {
               return (
                 <h1 key={index} className="font-bold text-2xl mb-4">
                   {line}
@@ -82,7 +72,6 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
             // Format percentage values
             line = line.replace(/\d+(\.\d+)?%/g, match => `<span class="font-semibold">${match}</span>`);
 
-            // For normal text lines
             return (
               <div key={index} className="mb-2" dangerouslySetInnerHTML={{ __html: line }} />
             );

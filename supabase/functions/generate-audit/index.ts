@@ -49,7 +49,7 @@ serve(async (req) => {
     if (!openAIApiKey) throw new Error('OpenAI API key not configured')
 
     const analysisPrompt = `
-      Analyze these financial metrics and provide a comprehensive business audit report:
+      You are a professional financial analyst. Create a detailed business audit report based on these metrics:
       
       Financial Metrics:
       - Total Revenue: $${metrics.total_revenue.toFixed(2)}
@@ -58,14 +58,23 @@ serve(async (req) => {
       - Profit Margin: ${metrics.profit_margin.toFixed(2)}%
       - Expense Ratio: ${metrics.expense_ratio.toFixed(2)}%
       
-      Generate a detailed audit report that includes:
-      1. Executive Summary
-      2. Key Performance Indicators
-      3. Areas of Concern
-      4. Specific, actionable recommendations
-      5. Potential opportunities for growth
-      
-      Format the response in clear sections and be specific with numbers and percentages.
+      Generate a comprehensive audit report with these exact sections:
+      1. Executive Summary (brief overview of financial health)
+      2. Key Performance Indicators (list the metrics with their values)
+      3. KPI Analysis (detailed analysis of each metric)
+      4. Areas of Concern (identify potential issues)
+      5. Recommendations (provide 3-5 specific, actionable recommendations with expected impact)
+      6. Growth Opportunities (identify 2-3 strategic opportunities)
+
+      For the recommendations section, format each recommendation as:
+      - Title: Clear action item
+      - Description: Detailed explanation
+      - Expected Impact: High/Medium/Low
+      - Implementation Difficulty: Easy/Medium/Hard
+      - Timeframe: Short-term/Medium-term/Long-term
+
+      Use clear, professional language and be specific with numbers.
+      Don't use markdown symbols like # or **.
     `
 
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -96,17 +105,25 @@ serve(async (req) => {
     const aiAnalysis = aiData.choices[0].message.content
 
     // Extract recommendations from the AI analysis
-    const recommendationRegex = /(?:Recommendations?|Action Items?):([\s\S]*?)(?:\n\n|\n(?=[A-Z])|$)/i
-    const recommendationsMatch = aiAnalysis.match(recommendationRegex)
-    const recommendationsText = recommendationsMatch ? recommendationsMatch[1].trim() : ''
-
-    // Convert recommendations text into structured format
-    const recommendations = recommendationsText.split(/\d+\./).filter(Boolean).map(rec => ({
-      title: rec.split('\n')[0].trim(),
-      description: rec.split('\n').slice(1).join('\n').trim() || rec.trim(),
-      impact: 'High',
-      difficulty: 'Medium'
-    }))
+    const recommendationsSection = aiAnalysis.match(/5\.\s*Recommendations([\s\S]*?)(?=6\.|$)/i)?.[1] || '';
+    
+    // Parse recommendations into structured format
+    const recommendations = recommendationsSection
+      .split(/(?=Title:)/)
+      .filter(rec => rec.trim())
+      .map(rec => {
+        const title = rec.match(/Title:\s*([^\n]+)/)?.[1] || '';
+        const description = rec.match(/Description:\s*([^\n]+)/)?.[1] || '';
+        const impact = rec.match(/Expected Impact:\s*([^\n]+)/)?.[1] || 'Medium';
+        const difficulty = rec.match(/Implementation Difficulty:\s*([^\n]+)/)?.[1] || 'Medium';
+        
+        return {
+          title,
+          description,
+          impact,
+          difficulty
+        };
+      });
 
     // Generate KPIs
     const kpis = [
