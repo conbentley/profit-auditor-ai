@@ -20,6 +20,8 @@ serve(async (req) => {
       throw new Error('No upload ID provided');
     }
 
+    console.log('Processing upload ID:', uploadId);
+
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') as string;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
@@ -33,6 +35,7 @@ serve(async (req) => {
       .single();
 
     if (uploadError || !upload) {
+      console.error('Upload not found:', uploadError);
       throw new Error('Upload not found');
     }
 
@@ -43,24 +46,69 @@ serve(async (req) => {
       .download(upload.file_path);
 
     if (fileError || !fileData) {
+      console.error('File not found in storage:', fileError);
       throw new Error('File not found in storage');
     }
 
-    // Convert the file data to text
+    // Process the file data in smaller chunks
     const text = await fileData.text();
-    const rows = text.split('\n').map(row => row.split(','));
-    const headers = rows[0];
+    const rows = text.split('\n').slice(0, 1000); // Limit to first 1000 rows for processing
+    const headers = rows[0].split(',');
     const data = rows.slice(1).map(row => 
-      Object.fromEntries(headers.map((header, i) => [header, row[i]]))
+      Object.fromEntries(headers.map((header, i) => [header, row.split(',')[i]]))
     );
 
-    // Analyze with OpenAI
+    // Calculate basic financial metrics
+    const financialMetrics = {
+      total_revenue: 0,
+      total_cost: 0,
+      total_profit: 0,
+      profit_margin: 0,
+      expense_ratio: 0,
+    };
+
+    // Find revenue and cost columns
+    const revenueColumn = headers.find(h => 
+      h.toLowerCase().includes('revenue') || 
+      h.toLowerCase().includes('sales') || 
+      h.toLowerCase().includes('income')
+    );
+    const costColumn = headers.find(h => 
+      h.toLowerCase().includes('cost') || 
+      h.toLowerCase().includes('expense') || 
+      h.toLowerCase().includes('expenditure')
+    );
+
+    if (revenueColumn && costColumn) {
+      data.forEach(row => {
+        const revenue = parseFloat(row[revenueColumn]) || 0;
+        const cost = parseFloat(row[costColumn]) || 0;
+        financialMetrics.total_revenue += revenue;
+        financialMetrics.total_cost += cost;
+      });
+
+      financialMetrics.total_profit = financialMetrics.total_revenue - financialMetrics.total_cost;
+      financialMetrics.profit_margin = (financialMetrics.total_profit / financialMetrics.total_revenue) * 100;
+      financialMetrics.expense_ratio = (financialMetrics.total_cost / financialMetrics.total_revenue) * 100;
+    }
+
+    console.log('Calculated financial metrics:', financialMetrics);
+
+    // Generate AI analysis
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const prompt = `Analyze this financial data summary:
+    Total Revenue: ${financialMetrics.total_revenue}
+    Total Cost: ${financialMetrics.total_cost}
+    Profit Margin: ${financialMetrics.profit_margin}%
+    Expense Ratio: ${financialMetrics.expense_ratio}%
+    
+    Provide a brief, clear analysis of the financial performance including key insights and any potential areas for improvement.`;
+
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
@@ -71,51 +119,56 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a financial auditor AI. Analyze the financial data and provide insights in the following JSON format:
-            {
-              "summary": "Brief overview of the financial data",
-              "metrics": {
-                "total_revenue": number,
-                "total_expenses": number,
-                "profit_margin": number,
-                "expense_ratio": number
-              },
-              "insights": ["Array of key insights"],
-              "recommendations": ["Array of actionable recommendations"]
-            }`
+            content: 'You are a financial analyst providing concise, actionable insights.'
           },
           {
             role: 'user',
-            content: `Analyze this financial data: ${JSON.stringify(data)}`
+            content: prompt
           }
         ],
         temperature: 0.7,
       }),
     });
 
-    if (!response.ok) {
+    if (!aiResponse.ok) {
+      console.error('OpenAI API error:', await aiResponse.text());
       throw new Error('OpenAI API request failed');
     }
 
-    const aiResponse = await response.json();
-    const analysis = JSON.parse(aiResponse.choices[0].message.content);
+    const aiData = await aiResponse.json();
+    const analysis = aiData.choices[0].message.content;
+
+    console.log('Generated AI analysis');
 
     // Update the upload record with analysis results
     const { error: updateError } = await supabase
       .from('spreadsheet_uploads')
       .update({
         processed: true,
-        analysis_results: analysis,
-        analyzed_at: new Date().toISOString(),
+        analysis_results: {
+          total_rows: rows.length - 1,
+          financial_metrics: financialMetrics,
+          ai_analysis: analysis,
+          processed_at: new Date().toISOString()
+        }
       })
       .eq('id', uploadId);
 
     if (updateError) {
+      console.error('Error updating upload record:', updateError);
       throw updateError;
     }
 
     return new Response(
-      JSON.stringify({ success: true, analysis }),
+      JSON.stringify({ 
+        success: true, 
+        analysis: {
+          total_rows: rows.length - 1,
+          financial_metrics: financialMetrics,
+          ai_analysis: analysis,
+          processed_at: new Date().toISOString()
+        }
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
