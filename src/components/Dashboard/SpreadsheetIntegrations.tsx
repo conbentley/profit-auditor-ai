@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +13,8 @@ interface SpreadsheetUpload {
   id: string;
   filename: string;
   file_type: string;
-  uploaded_at: string;
-  processed: boolean;
+  uploaded_at: string | null;
+  processed: boolean | null;
   processing_error: string | null;
   analysis_results?: any;
 }
@@ -30,7 +31,7 @@ const SpreadsheetIntegrations = () => {
 
   const fetchUploads = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("uploads").select("*");
+    const { data, error } = await supabase.from("spreadsheet_uploads").select("*");
     if (error) {
       toast.error("Error fetching uploads");
     } else {
@@ -40,7 +41,7 @@ const SpreadsheetIntegrations = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("uploads").delete().eq("id", id);
+    const { error } = await supabase.from("spreadsheet_uploads").delete().eq("id", id);
     if (error) {
       toast.error("Error deleting upload");
     } else {
@@ -67,7 +68,7 @@ const SpreadsheetIntegrations = () => {
           {uploads.map((upload) => (
             <TableRow key={upload.id}>
               <TableCell>{upload.filename}</TableCell>
-              <TableCell>{new Date(upload.uploaded_at).toLocaleString()}</TableCell>
+              <TableCell>{upload.uploaded_at ? new Date(upload.uploaded_at).toLocaleString() : 'N/A'}</TableCell>
               <TableCell>
                 <Button variant="destructive" onClick={() => {
                   setSelectedUpload(upload);
