@@ -1060,6 +1060,51 @@ export type Database = {
         }
         Relationships: []
       }
+      website_analysis: {
+        Row: {
+          ai_analysis: string | null
+          auto_scan: boolean | null
+          competitor_data: Json | null
+          created_at: string | null
+          id: string
+          last_scanned: string | null
+          raw_scan_data: Json | null
+          seo_metrics: Json | null
+          updated_at: string | null
+          url: string
+          user_id: string
+          website_type: Database["public"]["Enums"]["website_type"]
+        }
+        Insert: {
+          ai_analysis?: string | null
+          auto_scan?: boolean | null
+          competitor_data?: Json | null
+          created_at?: string | null
+          id?: string
+          last_scanned?: string | null
+          raw_scan_data?: Json | null
+          seo_metrics?: Json | null
+          updated_at?: string | null
+          url: string
+          user_id: string
+          website_type: Database["public"]["Enums"]["website_type"]
+        }
+        Update: {
+          ai_analysis?: string | null
+          auto_scan?: boolean | null
+          competitor_data?: Json | null
+          created_at?: string | null
+          id?: string
+          last_scanned?: string | null
+          raw_scan_data?: Json | null
+          seo_metrics?: Json | null
+          updated_at?: string | null
+          url?: string
+          user_id?: string
+          website_type?: Database["public"]["Enums"]["website_type"]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1129,6 +1174,7 @@ export type Database = {
         | "razorpay"
       theme_preference: "light" | "dark" | "system"
       user_role: "admin" | "user"
+      website_type: "ecommerce" | "service" | "b2b" | "other"
     }
     CompositeTypes: {
       [_ in never]: never
