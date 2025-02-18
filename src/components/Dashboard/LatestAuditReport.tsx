@@ -121,11 +121,18 @@ Difficulty: ${rec.difficulty}
         .eq('processed', true)
         .order('uploaded_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
+      if (!data) return null;
+
       // Convert the analysis_results to the correct type
+      const rawAnalysisResults = typeof data.analysis_results === 'string' 
+        ? JSON.parse(data.analysis_results)
+        : data.analysis_results;
+
+      // Transform the data with proper type handling
       const transformedData: SpreadsheetUpload = {
         id: data.id,
         user_id: data.user_id,
@@ -137,16 +144,16 @@ Difficulty: ${rec.difficulty}
         row_count: data.row_count,
         processing_error: data.processing_error,
         analysis_results: {
-          total_rows: data.analysis_results?.total_rows || 0,
+          total_rows: (rawAnalysisResults?.total_rows as number) || 0,
           financial_metrics: {
-            total_revenue: data.analysis_results?.financial_metrics?.total_revenue || 0,
-            total_cost: data.analysis_results?.financial_metrics?.total_cost || 0,
-            total_profit: data.analysis_results?.financial_metrics?.total_profit || 0,
-            profit_margin: data.analysis_results?.financial_metrics?.profit_margin || 0,
-            expense_ratio: data.analysis_results?.financial_metrics?.expense_ratio || 0,
+            total_revenue: (rawAnalysisResults?.financial_metrics?.total_revenue as number) || 0,
+            total_cost: (rawAnalysisResults?.financial_metrics?.total_cost as number) || 0,
+            total_profit: (rawAnalysisResults?.financial_metrics?.total_profit as number) || 0,
+            profit_margin: (rawAnalysisResults?.financial_metrics?.profit_margin as number) || 0,
+            expense_ratio: (rawAnalysisResults?.financial_metrics?.expense_ratio as number) || 0,
           },
-          ai_analysis: data.analysis_results?.ai_analysis,
-          processed_at: data.analysis_results?.processed_at || data.uploaded_at
+          ai_analysis: rawAnalysisResults?.ai_analysis as string,
+          processed_at: rawAnalysisResults?.processed_at || data.uploaded_at
         }
       };
 
