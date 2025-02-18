@@ -31,8 +31,8 @@ export default function OnboardingTasks() {
   const [tasks, setTasks] = useState<Task[]>([
     {
       id: 'integrations',
-      title: 'Connect Your APIs',
-      description: 'Start by connecting your financial, CRM, or e-commerce platforms through the integrations page.',
+      title: 'Connect Your Data',
+      description: 'Start by connecting your financial platforms or uploading spreadsheets through the integrations page.',
       route: '/integrations',
       isCompleted: false,
     },
@@ -60,32 +60,35 @@ export default function OnboardingTasks() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Check for any existing integrations
-        const { data: financialIntegrations, error: financialError } = await supabase
+        // Check for any existing integrations or spreadsheet uploads
+        const { data: financialIntegrations } = await supabase
           .from('financial_integrations')
           .select('id')
           .eq('user_id', user.id)
           .limit(1);
 
-        const { data: crmIntegrations, error: crmError } = await supabase
+        const { data: crmIntegrations } = await supabase
           .from('crm_integrations')
           .select('id')
           .eq('user_id', user.id)
           .limit(1);
 
-        const { data: ecommerceIntegrations, error: ecommerceError } = await supabase
+        const { data: ecommerceIntegrations } = await supabase
           .from('ecommerce_integrations')
           .select('id')
           .eq('user_id', user.id)
           .limit(1);
 
-        if (financialError || crmError || ecommerceError) {
-          throw new Error('Failed to check integrations');
-        }
+        const { data: spreadsheetUploads } = await supabase
+          .from('spreadsheet_uploads')
+          .select('id')
+          .eq('user_id', user.id)
+          .limit(1);
 
         const hasIntegrations = (financialIntegrations && financialIntegrations.length > 0) ||
                               (crmIntegrations && crmIntegrations.length > 0) ||
-                              (ecommerceIntegrations && ecommerceIntegrations.length > 0);
+                              (ecommerceIntegrations && ecommerceIntegrations.length > 0) ||
+                              (spreadsheetUploads && spreadsheetUploads.length > 0);
 
         if (hasIntegrations) {
           handleTaskClick('integrations', '/integrations', true);
@@ -240,7 +243,7 @@ export default function OnboardingTasks() {
                 {isDisabled && (
                   <p className="text-sm text-orange-600 mt-1">
                     {task.id === 'chat' 
-                      ? "Complete 'Connect Your APIs' and 'Generate Your First Audit' first"
+                      ? "Complete 'Connect Your Data' and 'Generate Your First Audit' first"
                       : `Complete "${requiredTask?.title}" first`
                     }
                   </p>
