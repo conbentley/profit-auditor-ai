@@ -34,7 +34,7 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
             if (line.match(/^\d+\.\s/)) {
               const [num, ...rest] = line.split(/\.(.+)/)
               return (
-                <div key={index} className="font-semibold mb-2">
+                <div key={index} className="text-base font-medium mb-3">
                   {num}. {rest.join('.')}
                 </div>
               );
@@ -46,18 +46,18 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
               const labelMatch = content.match(/^([^:]+):\s*(.+)$/);
               if (labelMatch) {
                 return (
-                  <li key={index} className="ml-4 mb-2">
-                    <span className="font-semibold">{labelMatch[1]}:</span> {labelMatch[2]}
+                  <li key={index} className="ml-4 mb-2 list-disc">
+                    <span className="font-medium">{labelMatch[1]}:</span> {labelMatch[2]}
                   </li>
                 );
               }
-              return <li key={index} className="ml-4 mb-2">{content}</li>;
+              return <li key={index} className="ml-4 mb-2 list-disc">{content}</li>;
             }
 
             // Format section headers
             if (line.includes('KPI Analysis:')) {
               return (
-                <div key={index} className="font-semibold mb-2">
+                <div key={index} className="text-base font-medium mb-3">
                   {line}
                 </div>
               );
@@ -66,17 +66,17 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
             // Format main headers
             if (line.includes('Business Audit Report') || line.includes('Analysis Summary')) {
               return (
-                <div key={index} className="font-semibold mb-2">
+                <div key={index} className="text-base font-medium mb-3">
                   {line.trim()}
                 </div>
               );
             }
 
             // Format currency values
-            line = line.replace(/\$\d{1,3}(,\d{3})*(\.\d+)?/g, match => `<span class="font-semibold">${match}</span>`);
+            line = line.replace(/\$\d{1,3}(,\d{3})*(\.\d+)?/g, match => `<span class="font-medium">${match}</span>`);
             
             // Format percentage values
-            line = line.replace(/\d+(\.\d+)?%/g, match => `<span class="font-semibold">${match}</span>`);
+            line = line.replace(/\d+(\.\d+)?%/g, match => `<span class="font-medium">${match}</span>`);
 
             return (
               <div key={index} className="mb-2" dangerouslySetInnerHTML={{ __html: line.trim() }} />
@@ -88,20 +88,14 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
   };
 
   return (
-    <div className={`flex ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[80%] p-3 rounded-lg ${
-          role === 'user'
-            ? 'bg-primary text-primary-foreground ml-4'
-            : 'bg-muted mr-4'
-        }`}
-      >
+    <div className={`py-4 px-6 ${role === 'assistant' ? 'bg-gray-50' : ''}`}>
+      <div className="max-w-3xl mx-auto">
         {typeof children === 'string' ? (
-          <div className="text-sm space-y-1">
+          <div className="text-[15px] leading-6">
             {formatMessage(children)}
           </div>
         ) : (
-          <p className="text-sm whitespace-pre-wrap">{children}</p>
+          <p className="text-[15px] leading-6 whitespace-pre-wrap">{children}</p>
         )}
       </div>
     </div>
