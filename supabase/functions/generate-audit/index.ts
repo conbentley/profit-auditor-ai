@@ -7,7 +7,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-async function analyzeSpreadsheetData(supabase: any, userId: string) {
+async function analyzeSpreadsheetData(supabase: any, userId: string, month: number, year: number) {
+  const previousMonth = month === 1 ? 12 : month - 1;
+  const previousYear = month === 1 ? year - 1 : year;
+  const previousMonthStart = new Date(previousYear, previousMonth - 1, 1).toISOString();
+  const previousMonthEnd = new Date(year, month - 1, 0).toISOString();
+
+  const { data: previousMonthData, error: previousError } = await supabase
+    .from('spreadsheet_uploads')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('processed', true)
+    .gte('uploaded_at', previousMonthStart)
+    .lt('uploaded_at', previousMonthEnd);
+
   const { data: uploads, error: uploadsError } = await supabase
     .from('spreadsheet_uploads')
     .select('*')
@@ -20,10 +33,27 @@ async function analyzeSpreadsheetData(supabase: any, userId: string) {
   }
 
   let spreadsheetInsights = [];
+  let monthlyComparison = {
+    current: { metrics: {}, uploadCount: 0 },
+    previous: { metrics: {}, uploadCount: previousMonthData?.length || 0 }
+  };
+
+  if (previousMonthData) {
+    previousMonthData.forEach(upload => {
+      if (upload.analysis_results?.insights) {
+        upload.analysis_results.insights.forEach((insight: any) => {
+          if (insight.statistics?.total) {
+            const metricKey = insight.column.toLowerCase();
+            monthlyComparison.previous.metrics[metricKey] = 
+              (monthlyComparison.previous.metrics[metricKey] || 0) + insight.statistics.total;
+          }
+        });
+      }
+    });
+  }
 
   for (const upload of uploads || []) {
     try {
-      // Download the file from storage
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('spreadsheets')
         .download(upload.file_path);
@@ -33,27 +63,29 @@ async function analyzeSpreadsheetData(supabase: any, userId: string) {
         continue;
       }
 
-      // Read the spreadsheet
       const arrayBuffer = await fileData.arrayBuffer();
       const workbook = read(arrayBuffer);
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
       const data = utils.sheet_to_json(firstSheet);
 
-      // Analyze the data
       const numericColumns = new Set<string>();
       const columnTotals: Record<string, number> = {};
       
-      // Identify numeric columns and calculate totals
       data.forEach((row: any) => {
         Object.entries(row).forEach(([key, value]) => {
           if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))) {
             numericColumns.add(key);
             columnTotals[key] = (columnTotals[key] || 0) + Number(value);
+            
+            const metricKey = key.toLowerCase();
+            monthlyComparison.current.metrics[metricKey] = 
+              (monthlyComparison.current.metrics[metricKey] || 0) + Number(value);
           }
         });
       });
 
-      // Generate insights for financial columns
+      monthlyComparison.current.uploadCount++;
+
       numericColumns.forEach(column => {
         const columnLower = column.toLowerCase();
         if (columnLower.includes('amount') || 
@@ -65,17 +97,21 @@ async function analyzeSpreadsheetData(supabase: any, userId: string) {
             source: upload.filename,
             metric: column,
             total: columnTotals[column],
-            rowCount: data.length
+            rowCount: data.length,
+            uploadDate: upload.uploaded_at
           });
         }
       });
 
-      // Mark the upload as processed
       await supabase
         .from('spreadsheet_uploads')
         .update({ 
           processed: true,
-          analyzed_at: new Date().toISOString()
+          analyzed_at: new Date().toISOString(),
+          analysis_results: {
+            insights: spreadsheetInsights,
+            monthlyComparison: monthlyComparison
+          }
         })
         .eq('id', upload.id);
 
@@ -91,7 +127,27 @@ async function analyzeSpreadsheetData(supabase: any, userId: string) {
     }
   }
 
-  return spreadsheetInsights;
+  let trendInsights = [];
+  
+  Object.keys(monthlyComparison.current.metrics).forEach(metric => {
+    const currentValue = monthlyComparison.current.metrics[metric];
+    const previousValue = monthlyComparison.previous.metrics[metric] || 0;
+    const percentageChange = previousValue ? ((currentValue - previousValue) / previousValue) * 100 : 100;
+    
+    trendInsights.push({
+      metric,
+      currentValue,
+      previousValue,
+      percentageChange,
+      trend: percentageChange > 0 ? 'increase' : 'decrease'
+    });
+  });
+
+  return {
+    insights: spreadsheetInsights,
+    trends: trendInsights,
+    monthlyComparison
+  };
 }
 
 serve(async (req) => {
@@ -107,14 +163,34 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Analyze spreadsheet data first
-    const spreadsheetInsights = await analyzeSpreadsheetData(supabase, user_id);
+    const spreadsheetAnalysis = await analyzeSpreadsheetData(supabase, user_id, month, year);
     
-    // Fetch data from all integration types
+    let trendSummary = '';
+    let trendRecommendations = [];
+
+    if (spreadsheetAnalysis?.trends) {
+      trendSummary = "\n\nMonth-over-Month Analysis:\n";
+      spreadsheetAnalysis.trends.forEach(trend => {
+        const changeDescription = trend.percentageChange > 0 ? 'increased' : 'decreased';
+        trendSummary += `${trend.metric} has ${changeDescription} by ${Math.abs(trend.percentageChange).toFixed(2)}% compared to last month.\n`;
+        
+        if (Math.abs(trend.percentageChange) > 20) {
+          trendRecommendations.push({
+            title: `Significant ${trend.metric} Change`,
+            description: `${trend.metric} has ${changeDescription} significantly (${Math.abs(trend.percentageChange).toFixed(2)}%) compared to last month. ${
+              trend.percentageChange < 0 ? 'Review for potential issues.' : 'Analyze successful strategies for replication.'
+            }`,
+            impact: 'high',
+            difficulty: 'medium',
+            estimated_savings: trend.percentageChange < 0 ? trend.currentValue * 0.1 : 0
+          });
+        }
+      });
+    }
+
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
 
-    // 1. Financial transactions and metrics
     const { data: transactions } = await supabase
       .from('financial_transactions')
       .select('*')
@@ -122,7 +198,6 @@ serve(async (req) => {
       .gte('transaction_date', startDate.toISOString())
       .lte('transaction_date', endDate.toISOString());
 
-    // 2. E-commerce data
     const { data: ecommerceMetrics } = await supabase
       .from('ecommerce_metrics')
       .select('*')
@@ -137,13 +212,11 @@ serve(async (req) => {
       .gte('sale_date', startDate.toISOString())
       .lte('sale_date', endDate.toISOString());
 
-    // 3. Payment processing data
     const { data: paymentIntegrations } = await supabase
       .from('payment_integrations')
       .select('*')
       .eq('user_id', user_id);
 
-    // 4. Marketing performance data
     const { data: marketingData } = await supabase
       .from('marketing_performance')
       .select('*')
@@ -151,13 +224,11 @@ serve(async (req) => {
       .gte('date', startDate.toISOString())
       .lte('date', endDate.toISOString());
 
-    // 5. CRM data
     const { data: crmIntegrations } = await supabase
       .from('crm_integrations')
       .select('*')
       .eq('user_id', user_id);
 
-    // Calculate comprehensive metrics
     const revenue = transactions
       ?.filter(t => t.type === 'income')
       .reduce((sum, t) => sum + Number(t.amount), 0) ?? 0;
@@ -168,18 +239,15 @@ serve(async (req) => {
 
     const profit_margin = revenue > 0 ? ((revenue - expenses) / revenue) * 100 : 0;
 
-    // Calculate e-commerce specific metrics
     const ecommerce_revenue = ecommerceSales?.reduce((sum, sale) => sum + Number(sale.total_price), 0) ?? 0;
     const average_order_value = ecommerceSales && ecommerceSales.length > 0
       ? ecommerce_revenue / ecommerceSales.length
       : 0;
 
-    // Calculate marketing ROI
     const marketing_spend = marketingData?.reduce((sum, data) => sum + Number(data.spend), 0) ?? 0;
     const marketing_revenue = marketingData?.reduce((sum, data) => sum + (Number(data.revenue) || 0), 0) ?? 0;
     const marketing_roi = marketing_spend > 0 ? ((marketing_revenue - marketing_spend) / marketing_spend) * 100 : 0;
 
-    // Prepare the comprehensive business data for AI analysis
     const businessData = {
       financial: {
         revenue,
@@ -218,7 +286,6 @@ serve(async (req) => {
       }
     };
 
-    // Generate AI analysis with enhanced integration data
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -308,13 +375,12 @@ serve(async (req) => {
     const aiResponse = await response.json();
     const analysis = JSON.parse(aiResponse.choices[0].message.content);
 
-    // Include spreadsheet insights in the audit summary and recommendations
     let additionalSummary = '';
     let additionalRecommendations = [];
 
-    if (spreadsheetInsights && spreadsheetInsights.length > 0) {
+    if (spreadsheetAnalysis?.insights && spreadsheetAnalysis.insights.length > 0) {
       additionalSummary = "\n\nSpreadsheet Analysis:\n";
-      spreadsheetInsights.forEach(insight => {
+      spreadsheetAnalysis.insights.forEach(insight => {
         additionalSummary += `Found ${insight.metric} data in ${insight.source} with a total of ${insight.total} across ${insight.rowCount} rows.\n`;
         
         if (insight.metric.toLowerCase().includes('revenue')) {
@@ -339,7 +405,6 @@ serve(async (req) => {
       });
     }
 
-    // Create the audit report with combined insights
     const { data: existingAudit, error: existingAuditError } = await supabase
       .from('financial_audits')
       .select('summary, recommendations')
@@ -353,7 +418,6 @@ serve(async (req) => {
       ...additionalRecommendations
     ];
 
-    // Store audit results with enhanced metrics
     const { data: audit, error: insertError } = await supabase
       .from('financial_audits')
       .insert({
