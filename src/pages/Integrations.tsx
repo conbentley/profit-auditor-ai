@@ -9,6 +9,7 @@ import MarketplaceIntegrations from "@/components/Dashboard/MarketplaceIntegrati
 import CRMIntegrations from "@/components/Dashboard/CRMIntegrations";
 import PaymentIntegrations from "@/components/Dashboard/PaymentIntegrations";
 import SpreadsheetIntegrations from "@/components/Dashboard/SpreadsheetIntegrations";
+import WebsiteIntegrations from "@/components/Dashboard/WebsiteIntegrations";
 
 export default function Integrations() {
   return <div className="flex min-h-screen bg-gray-50">
@@ -18,10 +19,11 @@ export default function Integrations() {
         <main className="p-6">
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-2">Integrations</h2>
-            <p className="text-gray-600 text-sm mb-6">Connect your financial, e-commerce, marketplace, payment, and CRM providers for comprehensive profit audits.</p>
+            <p className="text-gray-600 text-sm mb-6">Connect your financial, website, e-commerce, marketplace, payment, and CRM providers for comprehensive profit audits.</p>
             <Tabs defaultValue="financial" className="space-y-6">
               <TabsList>
                 <TabsTrigger value="financial">Financial</TabsTrigger>
+                <TabsTrigger value="website">Website</TabsTrigger>
                 <TabsTrigger value="ecommerce">E-commerce</TabsTrigger>
                 <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
                 <TabsTrigger value="payment">Payment</TabsTrigger>
@@ -31,6 +33,10 @@ export default function Integrations() {
               
               <TabsContent value="financial">
                 <FinancialIntegrations />
+              </TabsContent>
+
+              <TabsContent value="website">
+                <WebsiteIntegrations />
               </TabsContent>
               
               <TabsContent value="ecommerce">
