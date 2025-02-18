@@ -11,7 +11,7 @@ import { AuditMetrics } from "./AuditMetrics";
 import { AuditKPIs } from "./AuditKPIs";
 import { AuditRecommendations } from "./AuditRecommendations";
 import { supabase } from "@/integrations/supabase/client";
-import type { SpreadsheetUpload } from "@/types/spreadsheet";
+import type { SpreadsheetUpload, SpreadsheetAnalysis } from "@/types/spreadsheet";
 
 export function LatestAuditReport() {
   const queryClient = useQueryClient();
@@ -124,7 +124,33 @@ Difficulty: ${rec.difficulty}
         .single();
 
       if (error) throw error;
-      return data as SpreadsheetUpload;
+
+      // Convert the analysis_results to the correct type
+      const transformedData: SpreadsheetUpload = {
+        id: data.id,
+        user_id: data.user_id,
+        file_path: data.file_path,
+        file_type: data.file_type,
+        filename: data.filename,
+        uploaded_at: data.uploaded_at,
+        processed: data.processed,
+        row_count: data.row_count,
+        processing_error: data.processing_error,
+        analysis_results: {
+          total_rows: data.analysis_results?.total_rows || 0,
+          financial_metrics: {
+            total_revenue: data.analysis_results?.financial_metrics?.total_revenue || 0,
+            total_cost: data.analysis_results?.financial_metrics?.total_cost || 0,
+            total_profit: data.analysis_results?.financial_metrics?.total_profit || 0,
+            profit_margin: data.analysis_results?.financial_metrics?.profit_margin || 0,
+            expense_ratio: data.analysis_results?.financial_metrics?.expense_ratio || 0,
+          },
+          ai_analysis: data.analysis_results?.ai_analysis,
+          processed_at: data.analysis_results?.processed_at || data.uploaded_at
+        }
+      };
+
+      return transformedData;
     }
   });
 
