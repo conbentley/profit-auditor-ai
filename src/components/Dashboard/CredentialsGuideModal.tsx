@@ -1,3 +1,4 @@
+
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,16 @@ interface PlatformGuide {
 
 const guides: Record<string, PlatformGuide> = {
   // Financial platforms
+  sage: {
+    title: "Get Sage API Credentials",
+    steps: [
+      { text: "Log in to your Sage Developer Portal", link: { url: "https://developerselfservice.sage.com/", label: "Sage Developer Portal" } },
+      { text: "Click 'Create a new application' in the Developer Console" },
+      { text: "Fill in your application details and select the required APIs" },
+      { text: "Once created, you'll find your Client ID and Client Secret in the application details" },
+      { text: "Need a Sage account?", link: { url: "https://www.sage.com/en-gb/", label: "Sign up for Sage" } }
+    ]
+  },
   xero: {
     title: "Get Xero API Credentials",
     steps: [
