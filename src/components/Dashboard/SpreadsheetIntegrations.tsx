@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Upload, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
@@ -22,8 +24,11 @@ interface SpreadsheetUpload {
 const SpreadsheetIntegrations = () => {
   const [uploads, setUploads] = useState<SpreadsheetUpload[]>([]);
   const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUpload, setSelectedUpload] = useState<SpreadsheetUpload | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchUploads();
@@ -50,12 +55,56 @@ const SpreadsheetIntegrations = () => {
     }
   };
 
+  const handleFileUpload = async () => {
+    if (!uploadFile) {
+      toast.error("Please select a file to upload");
+      return;
+    }
+
+    const fileExt = uploadFile.name.split('.').pop()?.toLowerCase();
+    if (!['xlsx', 'xls', 'csv'].includes(fileExt || '')) {
+      toast.error("Please upload a valid spreadsheet file (xlsx, xls, or csv)");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+
+      const { data, error } = await supabase.storage
+        .from('spreadsheets')
+        .upload(`${Date.now()}_${uploadFile.name}`, uploadFile);
+
+      if (error) throw error;
+
+      const { error: dbError } = await supabase.from('spreadsheet_uploads').insert({
+        filename: uploadFile.name,
+        file_type: fileExt,
+        uploaded_at: new Date().toISOString(),
+        processed: false
+      });
+
+      if (dbError) throw dbError;
+
+      toast.success("File uploaded successfully");
+      fetchUploads();
+      setUploadDialogOpen(false);
+      setUploadFile(null);
+    } catch (error: any) {
+      toast.error(error.message || "Error uploading file");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-semibold mb-4">Spreadsheet Integrations</h2>
-      <Button onClick={() => setOpen(true)} className="mb-4">
+      <Button onClick={() => setUploadDialogOpen(true)} className="mb-4">
         <Upload className="mr-2" /> Upload Spreadsheet
       </Button>
+
       <Table>
         <TableHeader>
           <TableRow>
@@ -72,7 +121,7 @@ const SpreadsheetIntegrations = () => {
               <TableCell>
                 <Button variant="destructive" onClick={() => {
                   setSelectedUpload(upload);
-                  setOpen(true);
+                  setDeleteDialogOpen(true);
                 }}>
                   <Trash2 className="mr-2" /> Delete
                 </Button>
@@ -81,10 +130,38 @@ const SpreadsheetIntegrations = () => {
           ))}
         </TableBody>
       </Table>
-      <AlertDialog open={open} onOpenChange={setOpen}>
-        <AlertDialogTrigger asChild>
-          <Button>Open Dialog</Button>
-        </AlertDialogTrigger>
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Spreadsheet</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="file">Select File</Label>
+              <Input
+                id="file"
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleFileUpload} disabled={!uploadFile || uploading}>
+              {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
@@ -93,11 +170,11 @@ const SpreadsheetIntegrations = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => {
               if (selectedUpload) {
                 handleDelete(selectedUpload.id);
-                setOpen(false);
+                setDeleteDialogOpen(false);
               }
             }}>
               Confirm
