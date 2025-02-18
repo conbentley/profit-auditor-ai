@@ -34,9 +34,9 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
             if (line.match(/^\d+\.\s/)) {
               const [num, ...rest] = line.split(/\.(.+)/)
               return (
-                <h2 key={index} className="font-semibold text-xl mb-3 mt-4">
+                <div key={index} className="font-semibold mb-2">
                   {num}. {rest.join('.')}
-                </h2>
+                </div>
               );
             }
 
@@ -57,18 +57,18 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
             // Format section headers
             if (line.includes('KPI Analysis:')) {
               return (
-                <h3 key={index} className="font-semibold text-lg mb-3 mt-4">
+                <div key={index} className="font-semibold mb-2">
                   {line}
-                </h3>
+                </div>
               );
             }
 
             // Format main headers
             if (line.includes('Business Audit Report') || line.includes('Analysis Summary')) {
               return (
-                <h1 key={index} className="font-bold text-2xl mb-4">
+                <div key={index} className="font-semibold mb-2">
                   {line.trim()}
-                </h1>
+                </div>
               );
             }
 
