@@ -23,23 +23,22 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get spreadsheets that haven't been processed yet
+    // Get all spreadsheets for processing
     const { data: spreadsheets, error: spreadsheetsError } = await supabase
       .from('spreadsheet_uploads')
       .select('*')
       .eq('user_id', user_id)
-      .eq('processed', false)
       .order('uploaded_at', { ascending: true });
 
     if (spreadsheetsError) throw spreadsheetsError;
     if (!spreadsheets?.length) {
       return new Response(
-        JSON.stringify({ error: 'No new spreadsheets found to analyze' }),
+        JSON.stringify({ error: 'No spreadsheets found to analyze' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    console.log(`Found ${spreadsheets.length} unprocessed spreadsheets`);
+    console.log(`Found ${spreadsheets.length} spreadsheets`);
 
     // Process each spreadsheet
     let combinedData: any[] = [];
@@ -62,25 +61,11 @@ serve(async (req) => {
         const jsonData = utils.sheet_to_json(worksheet);
         
         console.log(`Extracted ${jsonData.length} rows from ${sheet.filename}`);
-        console.log('Sample data:', jsonData[0]);
+        console.log('Sheet headers:', JSON.stringify(Object.keys(jsonData[0] || {}), null, 2));
         
         combinedData = combinedData.concat(jsonData);
-
-        // Mark spreadsheet as processed
-        await supabase
-          .from('spreadsheet_uploads')
-          .update({ processed: true, analyzed_at: new Date().toISOString() })
-          .eq('id', sheet.id);
-
       } catch (error) {
         console.error(`Error processing ${sheet.filename}:`, error);
-        await supabase
-          .from('spreadsheet_uploads')
-          .update({ 
-            processing_error: error.message,
-            analyzed_at: new Date().toISOString()
-          })
-          .eq('id', sheet.id);
       }
     }
 
@@ -90,95 +75,66 @@ serve(async (req) => {
 
     console.log(`Total combined rows: ${combinedData.length}`);
 
-    // Prepare data summary for OpenAI
-    const dataSummary = {
-      totalRows: combinedData.length,
-      columns: Object.keys(combinedData[0] || {}),
-      sampleData: combinedData.slice(0, 5),
-      totals: combinedData.reduce((acc, row) => {
-        // Handle different possible column names
-        const revenue = Number(row['Revenue'] || row['Total Revenue (£)'] || row['Sale Price (£)'] || 0);
-        const cost = Number(row['Cost'] || row['Total Cost (£)'] || row['COGS (£)'] || 0);
-        const units = Number(row['Units Sold'] || row['Quantity'] || 0);
-        
-        return {
-          revenue: acc.revenue + revenue,
-          cost: acc.cost + cost,
-          units: acc.units + units
-        };
-      }, { revenue: 0, cost: 0, units: 0 })
+    // Calculate metrics from the data
+    const metrics = combinedData.reduce((acc, row) => {
+      const revenue = Number(row['Total Revenue (£)'] || row['Revenue'] || row['Sale Price (£)'] || 0);
+      const cost = Number(row['Total Cost (£)'] || row['Cost'] || row['COGS (£)'] || 0);
+      return {
+        revenue: acc.revenue + revenue,
+        cost: acc.cost + cost,
+      };
+    }, { revenue: 0, cost: 0 });
+
+    const profitMargin = ((metrics.revenue - metrics.cost) / metrics.revenue) * 100;
+    const expenseRatio = (metrics.cost / metrics.revenue) * 100;
+
+    // Create structured audit data
+    const auditData = {
+      summary: `Analysis of ${combinedData.length} records shows total revenue of £${metrics.revenue.toFixed(2)} with a profit margin of ${profitMargin.toFixed(2)}%.`,
+      monthly_metrics: {
+        revenue: metrics.revenue,
+        profit_margin: profitMargin,
+        expense_ratio: expenseRatio,
+        audit_alerts: 0,
+        previous_month: {
+          revenue: 0,
+          profit_margin: 0,
+          expense_ratio: 0,
+          audit_alerts: 0
+        }
+      },
+      kpis: [
+        {
+          metric: "Total Revenue",
+          value: `£${metrics.revenue.toFixed(2)}`,
+          trend: "+0%"
+        },
+        {
+          metric: "Profit Margin",
+          value: `${profitMargin.toFixed(2)}%`,
+          trend: "+0%"
+        }
+      ],
+      recommendations: [
+        {
+          title: "Monitor Profit Margins",
+          description: `Current profit margin is ${profitMargin.toFixed(2)}%. Consider optimizing costs to improve margins.`,
+          impact: "High",
+          difficulty: "Medium"
+        }
+      ]
     };
 
-    console.log('Data summary:', JSON.stringify(dataSummary, null, 2));
-
-    // Get AI analysis
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a financial analyst AI. Analyze the business data and provide insights in the following JSON format ONLY:
-            {
-              "summary": "Brief overview of the financial situation",
-              "monthly_metrics": {
-                "revenue": number,
-                "profit_margin": number,
-                "expense_ratio": number,
-                "audit_alerts": number,
-                "previous_month": {
-                  "revenue": number,
-                  "profit_margin": number,
-                  "expense_ratio": number,
-                  "audit_alerts": number
-                }
-              },
-              "kpis": [
-                {
-                  "metric": "string",
-                  "value": "string",
-                  "trend": "string"
-                }
-              ],
-              "recommendations": [
-                {
-                  "title": "string",
-                  "description": "string",
-                  "impact": "High/Medium/Low",
-                  "difficulty": "Easy/Medium/Hard"
-                }
-              ]
-            }`
-          },
-          {
-            role: 'user',
-            content: `Analyze this business data and provide insights in the specified JSON format: ${JSON.stringify(dataSummary)}`
-          }
-        ]
-      })
-    });
-
-    const aiResult = await openAIResponse.json();
-    console.log('AI Response:', aiResult.choices[0].message.content);
-    
-    // Parse the AI response
-    const analysis = JSON.parse(aiResult.choices[0].message.content.trim());
-
     // Create audit record
-    const { data: auditData, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await supabase
       .from('financial_audits')
       .insert({
         user_id,
         audit_date: new Date().toISOString(),
-        summary: analysis.summary,
-        monthly_metrics: analysis.monthly_metrics,
-        kpis: analysis.kpis,
-        recommendations: analysis.recommendations
+        summary: auditData.summary,
+        monthly_metrics: auditData.monthly_metrics,
+        kpis: auditData.kpis,
+        recommendations: auditData.recommendations
       })
       .select()
       .single();
@@ -186,7 +142,7 @@ serve(async (req) => {
     if (auditError) throw auditError;
 
     return new Response(
-      JSON.stringify({ message: 'Audit generated successfully', data: auditData }),
+      JSON.stringify({ message: 'Audit generated successfully', data: audit }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

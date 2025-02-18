@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -48,6 +47,37 @@ interface FinancialAudit {
   recommendations: Recommendation[];
 }
 
+interface DatabaseAudit {
+  id: string;
+  created_at: string;
+  user_id: string;
+  audit_date: string;
+  summary: string;
+  monthly_metrics: {
+    revenue: number;
+    profit_margin: number;
+    expense_ratio: number;
+    audit_alerts: number;
+    previous_month: {
+      revenue: number;
+      profit_margin: number;
+      expense_ratio: number;
+      audit_alerts: number;
+    };
+  };
+  kpis: Array<{
+    metric: string;
+    value: string;
+    trend?: string;
+  }>;
+  recommendations: Array<{
+    title: string;
+    description: string;
+    impact: string;
+    difficulty: string;
+  }>;
+}
+
 export function LatestAuditReport() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -67,7 +97,7 @@ export function LatestAuditReport() {
         .maybeSingle();
 
       if (error) throw error;
-      return data as FinancialAudit;
+      return data as DatabaseAudit;
     },
     refetchInterval: 30000,
   });
