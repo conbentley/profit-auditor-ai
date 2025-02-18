@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,20 +30,14 @@ export default function SpreadsheetIntegrations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      console.log('Fetching uploads for user:', user.id);
-
       const { data, error } = await supabase
         .from('spreadsheet_uploads')
         .select('*')
         .eq('user_id', user.id)
         .order('uploaded_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching uploads:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Fetched uploads:', data?.length || 0);
       setUploads(data || []);
     } catch (error) {
       console.error('Error fetching uploads:', error);
@@ -56,24 +51,41 @@ export default function SpreadsheetIntegrations() {
     fetchUploads();
   }, []);
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload-spreadsheet', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      await fetchUploads();
+      toast.success("Spreadsheet uploaded successfully");
+    } catch (error) {
+      console.error('Upload failed:', error);
+      toast.error("Failed to upload spreadsheet");
+    } finally {
+      setIsUploading(false);
+      if (event.target) event.target.value = '';
+    }
+  };
+
   const handleDelete = async (id: string) => {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-
-      console.log('Deleting upload:', id);
-
-      // First, delete all related audit records
-      const { error: auditError } = await supabase
-        .from('financial_audits')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (auditError) {
-        console.error('Error deleting audit records:', auditError);
-        throw auditError;
-      }
 
       // Get the file details
       const { data: fileData, error: fetchError } = await supabase
@@ -87,37 +99,25 @@ export default function SpreadsheetIntegrations() {
 
       // Delete from storage if file exists
       if (fileData?.file_path) {
-        console.log('Deleting file from storage:', fileData.file_path);
         const { error: storageError } = await supabase.storage
           .from('spreadsheets')
           .remove([fileData.file_path]);
 
-        if (storageError) {
-          console.error('Error deleting from storage:', storageError);
-          throw storageError;
-        }
+        if (storageError) throw storageError;
       }
 
-      // Delete the database record
+      // Delete only the spreadsheet record
       const { error: dbError } = await supabase
         .from('spreadsheet_uploads')
         .delete()
         .eq('id', id)
         .eq('user_id', user.id);
 
-      if (dbError) {
-        console.error('Error deleting from database:', dbError);
-        throw dbError;
-      }
+      if (dbError) throw dbError;
 
-      console.log('Successfully deleted upload:', id);
-      
       // Update local state
       setUploads(current => current.filter(upload => upload.id !== id));
-      toast.success("Spreadsheet and all related data deleted successfully");
-
-      // Refetch to ensure state is in sync
-      await fetchUploads();
+      toast.success("Spreadsheet deleted successfully");
 
     } catch (error) {
       console.error("Delete failed:", error);
