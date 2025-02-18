@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { read, utils } from 'https://esm.sh/xlsx@0.18.5'
@@ -11,7 +10,6 @@ const corsHeaders = {
 function parseFinancialValue(value: any): number {
   if (typeof value === 'number') return value;
   if (typeof value === 'string') {
-    // Remove currency symbols, commas, and other non-numeric characters except decimal points and minus signs
     const cleaned = value.replace(/[^0-9.-]/g, '');
     return Number(cleaned) || 0;
   }
@@ -70,7 +68,6 @@ async function analyzeSpreadsheetData(workbook: any) {
     const monthlyRevenue: Record<string, number> = {};
 
     rows.forEach((row: any[], rowIndex: number) => {
-      // Create an object mapping headers to values for easier access
       const rowData = headers.reduce((acc, header, index) => {
         acc[header] = row[index];
         return acc;
@@ -78,26 +75,22 @@ async function analyzeSpreadsheetData(workbook: any) {
 
       console.log(`Processing row ${rowIndex + 1}:`, rowData);
 
-      // Process revenue
       if (identifiedColumns.revenue) {
         const revenue = parseFinancialValue(rowData[identifiedColumns.revenue]);
         totalRevenue += revenue;
         console.log(`Revenue found: ${revenue}`);
       }
 
-      // Process expenses
       if (identifiedColumns.expense) {
         const expense = parseFinancialValue(rowData[identifiedColumns.expense]);
         totalExpense += expense;
         console.log(`Expense found: ${expense}`);
       }
 
-      // Track products if available
       if (identifiedColumns.product && rowData[identifiedColumns.product]) {
         products.add(rowData[identifiedColumns.product]);
       }
 
-      // Group by month if date column exists
       if (identifiedColumns.date && rowData[identifiedColumns.date]) {
         const date = new Date(rowData[identifiedColumns.date]);
         if (!isNaN(date.getTime())) {
@@ -175,6 +168,42 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
+    // Clean up old data first
+    console.log('Cleaning up old data...');
+    
+    // Delete old financial audits
+    const { error: deleteAuditError } = await supabase
+      .from('financial_audits')
+      .delete()
+      .eq('user_id', user.id);
+    
+    if (deleteAuditError) {
+      console.error('Error deleting old audits:', deleteAuditError);
+    }
+
+    // Delete old spreadsheet uploads
+    const { data: oldUploads, error: fetchError } = await supabase
+      .from('spreadsheet_uploads')
+      .select('file_path')
+      .eq('user_id', user.id);
+
+    if (!fetchError && oldUploads) {
+      // Delete old files from storage
+      for (const upload of oldUploads) {
+        if (upload.file_path) {
+          await supabase.storage
+            .from('spreadsheets')
+            .remove([upload.file_path]);
+        }
+      }
+
+      // Delete old upload records
+      await supabase
+        .from('spreadsheet_uploads')
+        .delete()
+        .eq('user_id', user.id);
+    }
+
     // Generate unique file path
     const fileExt = file.name.split('.').pop();
     const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
@@ -228,8 +257,8 @@ serve(async (req) => {
       throw uploadError;
     }
 
-    // Trigger audit generation with the new financial data
-    console.log('Triggering audit generation...');
+    // Create new financial audit
+    console.log('Creating new audit...');
     const monthlyMetrics = {
       revenue: analysisResults.summary.total_revenue,
       profit_margin: analysisResults.summary.profit_margin,
@@ -243,7 +272,6 @@ serve(async (req) => {
       }
     };
 
-    // Update financial audit
     const { error: auditError } = await supabase
       .from('financial_audits')
       .insert({
