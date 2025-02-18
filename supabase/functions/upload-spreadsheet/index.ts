@@ -10,47 +10,97 @@ const corsHeaders = {
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+function preprocessSpreadsheetData(data: any[]) {
+  return data.map(row => {
+    // Ensure numerical values
+    const unitsSold = Number(row['Units Sold']) || 0;
+    const salePrice = Number(row['Sale Price (£)']) || 0;
+    const cogs = Number(row['COGS (£)']) || 0;
+
+    return {
+      ...row,
+      'Units Sold': unitsSold,
+      'Sale Price (£)': salePrice,
+      'COGS (£)': cogs,
+      'Total Revenue (£)': unitsSold * salePrice,
+      'Total Cost (£)': unitsSold * cogs
+    };
+  });
+}
+
 async function analyzeWithGPT(data: any[]) {
   try {
-    const dataString = JSON.stringify(data, null, 2);
-    
-    const prompt = `
-    Analyze this financial data and provide:
-    1. Total revenue, costs, and profit
-    2. Key metrics like profit margin and expense ratio
-    3. A brief executive summary
-    4. 2-3 actionable recommendations
-    
-    The data is in JSON format:
-    ${dataString}
+    const processedData = preprocessSpreadsheetData(data);
+    console.log('Processed data sample:', processedData.slice(0, 2));
 
-    Respond in this exact JSON format:
+    // Calculate basic metrics first
+    const totals = processedData.reduce((acc, row) => {
+      acc.revenue += row['Total Revenue (£)'];
+      acc.costs += row['Total Cost (£)'];
+      acc.units += row['Units Sold'];
+      return acc;
+    }, { revenue: 0, costs: 0, units: 0 });
+
+    const profit = totals.revenue - totals.costs;
+    const profitMargin = (profit / totals.revenue) * 100;
+    const expenseRatio = (totals.costs / totals.revenue) * 100;
+
+    const dataForGPT = {
+      summarizedMetrics: {
+        total_revenue: totals.revenue,
+        total_costs: totals.costs,
+        total_profit: profit,
+        profit_margin: profitMargin,
+        expense_ratio: expenseRatio,
+        total_units: totals.units
+      },
+      sample_transactions: processedData.slice(0, 10)
+    };
+
+    const prompt = `
+    Based on this sales data summary:
+    ${JSON.stringify(dataForGPT, null, 2)}
+
+    Provide a financial analysis following this EXACT format:
     {
       "metrics": {
-        "total_revenue": number,
-        "total_costs": number,
-        "profit_margin": number,
-        "expense_ratio": number
+        "total_revenue": ${totals.revenue},
+        "total_costs": ${totals.costs},
+        "profit_margin": ${profitMargin},
+        "expense_ratio": ${expenseRatio}
       },
-      "summary": "string",
+      "summary": "Write a concise executive summary here",
       "kpis": [
         {
-          "metric": "string",
-          "value": "string",
-          "trend": "string"
+          "metric": "Revenue",
+          "value": "£${totals.revenue.toFixed(2)}",
+          "trend": "Current period"
+        },
+        {
+          "metric": "Profit Margin",
+          "value": "${profitMargin.toFixed(1)}%",
+          "trend": "Current period"
+        },
+        {
+          "metric": "Units Sold",
+          "value": "${totals.units}",
+          "trend": "Current period"
         }
       ],
       "recommendations": [
         {
           "title": "string",
           "description": "string",
-          "impact": "string",
-          "difficulty": "string",
+          "impact": "High | Medium | Low",
+          "difficulty": "High | Medium | Low",
           "estimated_savings": number
         }
       ]
-    }`;
+    }
 
+    Important: Maintain exact numeric values for metrics, only provide analysis in summary and recommendations.`;
+
+    console.log('Sending prompt to GPT...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -62,7 +112,7 @@ async function analyzeWithGPT(data: any[]) {
         messages: [
           { 
             role: 'system', 
-            content: 'You are a financial analyst. Always return properly formatted JSON.'
+            content: 'You are a financial analyst. Return only valid JSON matching the specified format exactly.'
           },
           { role: 'user', content: prompt }
         ],
@@ -70,17 +120,27 @@ async function analyzeWithGPT(data: any[]) {
     });
 
     const result = await response.json();
-    console.log('GPT Analysis:', result);
+    console.log('GPT raw response:', result);
 
-    try {
-      return JSON.parse(result.choices[0].message.content);
-    } catch (e) {
-      console.error('Failed to parse GPT response:', e);
-      throw new Error('Invalid analysis format received');
+    if (!result.choices?.[0]?.message?.content) {
+      throw new Error('Invalid response from GPT');
     }
+
+    const parsedResponse = JSON.parse(result.choices[0].message.content);
+    
+    // Validate response structure
+    if (!parsedResponse.metrics?.total_revenue ||
+        !parsedResponse.metrics?.total_costs ||
+        !parsedResponse.summary ||
+        !Array.isArray(parsedResponse.kpis) ||
+        !Array.isArray(parsedResponse.recommendations)) {
+      throw new Error('GPT response missing required fields');
+    }
+
+    return parsedResponse;
   } catch (error) {
     console.error('Error in GPT analysis:', error);
-    throw error;
+    throw new Error(`GPT analysis failed: ${error.message}`);
   }
 }
 
@@ -136,8 +196,6 @@ serve(async (req) => {
     const workbook = read(new Uint8Array(arrayBuffer), { type: 'array' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = utils.sheet_to_json(worksheet);
-
-    console.log('Sample of parsed data:', data.slice(0, 2));
 
     // Analyze with GPT
     console.log('Analyzing with GPT...');
