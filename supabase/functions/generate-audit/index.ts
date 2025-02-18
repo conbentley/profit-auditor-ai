@@ -1,161 +1,144 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { user_id, spreadsheet_data } = await req.json();
-    console.log('Processing audit for user:', user_id);
-
-    if (!user_id || !spreadsheet_data) {
-      throw new Error('Missing required parameters');
-    }
+    const { user_id } = await req.json()
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    )
 
-    // First, clean up any existing audit data
-    const { error: cleanupError } = await supabase
-      .from('financial_audits')
-      .delete()
-      .eq('user_id', user_id);
+    console.log('Generating audit for user:', user_id)
 
-    if (cleanupError) {
-      console.error('Error cleaning up old audits:', cleanupError);
-      throw cleanupError;
-    }
-
-    // Verify these spreadsheets still exist and belong to the user
-    const { data: activeUploads, error: verifyError } = await supabase
+    // Get the latest processed spreadsheet data
+    const { data: spreadsheetData, error: spreadsheetError } = await supabase
       .from('spreadsheet_uploads')
-      .select('id')
+      .select('*')
       .eq('user_id', user_id)
-      .in('id', spreadsheet_data.map(sheet => sheet.id));
+      .eq('processed', true)
+      .order('uploaded_at', { ascending: false })
+      .limit(1)
+      .single()
 
-    if (verifyError) {
-      console.error('Error verifying uploads:', verifyError);
-      throw verifyError;
+    if (spreadsheetError) {
+      console.error('Error fetching spreadsheet:', spreadsheetError)
     }
 
-    const activeUploadIds = new Set(activeUploads.map(upload => upload.id));
-    const validSpreadsheetData = spreadsheet_data.filter(sheet => activeUploadIds.has(sheet.id));
-
-    console.log(`Found ${validSpreadsheetData.length} active uploads out of ${spreadsheet_data.length} total`);
-
-    if (validSpreadsheetData.length === 0) {
-      return new Response(
-        JSON.stringify({ message: 'No active spreadsheets found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const metrics = spreadsheetData?.analysis_results?.financial_metrics || {
+      total_revenue: 0,
+      total_cost: 0,
+      total_profit: 0,
+      profit_margin: 0,
+      expense_ratio: 0
     }
 
-    // Initialize metrics
-    let totalRevenue = 0;
-    let totalExpenses = 0;
-    let insights = [];
-    let processedFiles = 0;
+    // Generate AI analysis using the metrics
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY')
+    if (!openAIApiKey) throw new Error('OpenAI API key not configured')
 
-    // Process only verified active spreadsheets
-    validSpreadsheetData.forEach(sheet => {
-      console.log(`Processing verified sheet: ${sheet.filename}`);
-      const results = sheet.analysis_results;
+    const analysisPrompt = `
+      Analyze these financial metrics and provide a comprehensive business audit report:
       
-      if (results) {
-        const revenue = 
-          parseFloat(results.total_revenue) || 
-          parseFloat(results.revenue) || 
-          parseFloat(results.income) || 
-          0;
+      Financial Metrics:
+      - Total Revenue: $${metrics.total_revenue.toFixed(2)}
+      - Total Cost: $${metrics.total_cost.toFixed(2)}
+      - Total Profit: $${metrics.total_profit.toFixed(2)}
+      - Profit Margin: ${metrics.profit_margin.toFixed(2)}%
+      - Expense Ratio: ${metrics.expense_ratio.toFixed(2)}%
+      
+      Generate a detailed audit report that includes:
+      1. Executive Summary
+      2. Key Performance Indicators
+      3. Areas of Concern
+      4. Specific, actionable recommendations
+      5. Potential opportunities for growth
+      
+      Format the response in clear sections and be specific with numbers and percentages.
+    `
 
-        const expenses = 
-          parseFloat(results.total_expenses) || 
-          parseFloat(results.expenses) || 
-          parseFloat(results.costs) || 
-          0;
-
-        console.log(`Found revenue: ${revenue}, expenses: ${expenses} in ${sheet.filename}`);
-
-        if (revenue > 0 || expenses > 0) {
-          totalRevenue += revenue;
-          totalExpenses += expenses;
-          processedFiles++;
-          
-          insights.push(`${sheet.filename}:`);
-          insights.push(`- Revenue: £${revenue.toFixed(2)}`);
-          insights.push(`- Expenses: £${expenses.toFixed(2)}`);
-          if (revenue > 0) {
-            const fileMargin = ((revenue - expenses) / revenue) * 100;
-            insights.push(`- Profit Margin: ${fileMargin.toFixed(2)}%`);
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert financial analyst providing detailed business audits. Be thorough and professional.'
+          },
+          {
+            role: 'user',
+            content: analysisPrompt
           }
-        }
+        ],
+        temperature: 0.7,
+      }),
+    })
+
+    if (!aiResponse.ok) throw new Error('Failed to get AI analysis')
+
+    const aiData = await aiResponse.json()
+    const aiAnalysis = aiData.choices[0].message.content
+
+    // Extract recommendations from the AI analysis
+    const recommendationRegex = /(?:Recommendations?|Action Items?):([\s\S]*?)(?:\n\n|\n(?=[A-Z])|$)/i
+    const recommendationsMatch = aiAnalysis.match(recommendationRegex)
+    const recommendationsText = recommendationsMatch ? recommendationsMatch[1].trim() : ''
+
+    // Convert recommendations text into structured format
+    const recommendations = recommendationsText.split(/\d+\./).filter(Boolean).map(rec => ({
+      title: rec.split('\n')[0].trim(),
+      description: rec.split('\n').slice(1).join('\n').trim() || rec.trim(),
+      impact: 'High',
+      difficulty: 'Medium'
+    }))
+
+    // Generate KPIs
+    const kpis = [
+      {
+        metric: 'Revenue',
+        value: `$${metrics.total_revenue.toLocaleString('en-US', { maximumFractionDigits: 2 })}`,
+        trend: '+0%'
+      },
+      {
+        metric: 'Profit Margin',
+        value: `${metrics.profit_margin.toFixed(1)}%`,
+        trend: '+0%'
+      },
+      {
+        metric: 'Expense Ratio',
+        value: `${metrics.expense_ratio.toFixed(1)}%`,
+        trend: '+0%'
       }
-    });
+    ]
 
-    console.log('Aggregated totals:', { totalRevenue, totalExpenses });
-
-    const profitMargin = totalRevenue > 0 ? ((totalRevenue - totalExpenses) / totalRevenue) * 100 : 0;
-    const expenseRatio = totalRevenue > 0 ? (totalExpenses / totalRevenue) * 100 : 0;
-
-    // Generate summary
-    const summary = `Analysis of ${processedFiles} active financial documents completed. ` +
-      `Total revenue: £${totalRevenue.toFixed(2)}. ` +
-      `Total expenses: £${totalExpenses.toFixed(2)}. ` +
-      `Overall profit margin: ${profitMargin.toFixed(2)}%. ` +
-      `\n\nDetailed Breakdown:\n${insights.join('\n')}`;
-
-    // Generate recommendations based on actual data
-    const recommendations = [];
-    
-    if (profitMargin < 20) {
-      recommendations.push({
-        title: "Improve Profit Margins",
-        description: `Current profit margin of ${profitMargin.toFixed(2)}% suggests room for improvement. Consider reviewing pricing strategy and cost structure.`,
-        impact: "High",
-        difficulty: "Medium"
-      });
-    }
-
-    if (expenseRatio > 70) {
-      recommendations.push({
-        title: "Expense Optimization",
-        description: `High expense ratio of ${expenseRatio.toFixed(2)}%. Review major expense categories for potential cost-saving opportunities.`,
-        impact: "High",
-        difficulty: "Medium"
-      });
-    }
-
-    if (recommendations.length === 0) {
-      recommendations.push({
-        title: "Financial Analysis Overview",
-        description: `Analysis shows a healthy profit margin of ${profitMargin.toFixed(2)}%. Continue monitoring key metrics to maintain performance.`,
-        impact: "Medium",
-        difficulty: "Low"
-      });
-    }
-
-    // Create new audit record
-    const { error: auditError } = await supabase
+    // Create the audit record
+    const { data: auditData, error: auditError } = await supabase
       .from('financial_audits')
       .insert({
         user_id,
         audit_date: new Date().toISOString(),
-        summary,
+        summary: aiAnalysis,
         monthly_metrics: {
-          revenue: totalRevenue,
-          profit_margin: profitMargin,
-          expense_ratio: expenseRatio,
-          audit_alerts: expenseRatio > 70 ? 1 : 0,
+          revenue: metrics.total_revenue,
+          profit_margin: metrics.profit_margin,
+          expense_ratio: metrics.expense_ratio,
+          audit_alerts: recommendations.length,
           previous_month: {
             revenue: 0,
             profit_margin: 0,
@@ -163,48 +146,30 @@ serve(async (req) => {
             audit_alerts: 0
           }
         },
-        kpis: [
-          {
-            metric: "Total Revenue",
-            value: `£${totalRevenue.toFixed(2)}`,
-            trend: totalRevenue > 0 ? "increase" : "neutral"
-          },
-          {
-            metric: "Total Expenses",
-            value: `£${totalExpenses.toFixed(2)}`,
-            trend: totalExpenses > 0 ? "increase" : "neutral"
-          },
-          {
-            metric: "Profit Margin",
-            value: `${profitMargin.toFixed(2)}%`,
-            trend: profitMargin > 20 ? "positive" : "negative"
-          },
-          {
-            metric: "Expense Ratio",
-            value: `${expenseRatio.toFixed(2)}%`,
-            trend: expenseRatio < 70 ? "positive" : "negative"
-          }
-        ],
+        kpis,
         recommendations
-      });
+      })
+      .select()
+      .single()
 
-    if (auditError) {
-      console.error('Error creating audit:', auditError);
-      throw auditError;
-    }
+    if (auditError) throw auditError
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({
+        success: true,
+        audit: auditData
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    )
+
   } catch (error) {
-    console.error('Error generating audit:', error);
+    console.error('Error generating audit:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    );
+    )
   }
-});
+})
