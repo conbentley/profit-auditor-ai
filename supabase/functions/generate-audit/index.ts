@@ -82,20 +82,34 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a financial analyst AI. Analyze the business data and provide insights in a structured format.'
+            content: `You are a financial analyst AI. Analyze the business data and provide insights in the following JSON format ONLY:
+            {
+              "summary": "Brief overview of the financial situation",
+              "recommendations": [
+                {
+                  "title": "Recommendation title",
+                  "description": "Detailed explanation",
+                  "impact": "High/Medium/Low",
+                  "difficulty": "Easy/Medium/Hard"
+                }
+              ]
+            }`
           },
           {
             role: 'user',
-            content: `Analyze this business data and provide insights: ${JSON.stringify(dataSummary)}`
+            content: `Analyze this business data and provide insights in the specified JSON format: ${JSON.stringify(dataSummary)}`
           }
         ]
       })
     });
 
     const aiResult = await openAIResponse.json();
-    const analysis = aiResult.choices[0].message.content;
+    console.log('AI Response:', aiResult.choices[0].message.content);
+    
+    // Parse the AI response as JSON
+    const analysisJson = JSON.parse(aiResult.choices[0].message.content.trim());
 
-    console.log('AI Analysis completed');
+    console.log('Parsed Analysis:', analysisJson);
 
     // Create audit record
     const { data: auditData, error: auditError } = await supabase
@@ -103,7 +117,7 @@ serve(async (req) => {
       .insert({
         user_id,
         audit_date: new Date().toISOString(),
-        summary: analysis,
+        summary: analysisJson.summary,
         monthly_metrics: {
           revenue: dataSummary.totals.revenue,
           profit_margin: dataSummary.totals.revenue > 0 
@@ -132,7 +146,7 @@ serve(async (req) => {
             trend: "+0%"
           }
         ],
-        recommendations: JSON.parse(analysis).recommendations || []
+        recommendations: analysisJson.recommendations
       })
       .select()
       .single();
