@@ -11,6 +11,43 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+interface MonthlyMetrics {
+  revenue: number;
+  profit_margin: number;
+  expense_ratio: number;
+  audit_alerts: number;
+  previous_month: {
+    revenue: number;
+    profit_margin: number;
+    expense_ratio: number;
+    audit_alerts: number;
+  };
+}
+
+interface KPI {
+  metric: string;
+  value: string;
+  trend?: string;
+}
+
+interface Recommendation {
+  title: string;
+  description: string;
+  impact: string;
+  difficulty: string;
+}
+
+interface FinancialAudit {
+  id: string;
+  created_at: string;
+  user_id: string;
+  audit_date: string;
+  summary: string;
+  monthly_metrics: MonthlyMetrics;
+  kpis: KPI[];
+  recommendations: Recommendation[];
+}
+
 export function LatestAuditReport() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -30,7 +67,7 @@ export function LatestAuditReport() {
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      return data as FinancialAudit;
     },
     refetchInterval: 30000,
   });
