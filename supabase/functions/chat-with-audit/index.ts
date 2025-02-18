@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -93,17 +92,46 @@ When answering:
         Authorization: `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini", // Updated from gpt-4 to gpt-4o-mini as per requirements
+        model: "gpt-4o-mini",
         messages: [{ role: "system", content: systemPrompt }, { role: "user", content: query }],
         temperature: 0.7,
       }),
     });
 
     const responseData = await response.json();
-    return new Response(JSON.stringify(responseData), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    
+    if (!response.ok) {
+      console.error('OpenAI API error:', responseData);
+      throw new Error(responseData.error?.message || 'Failed to get AI response');
+    }
+
+    // Extract just the message content from the OpenAI response
+    return new Response(
+      JSON.stringify({ 
+        response: responseData.choices[0].message.content 
+      }), 
+      { 
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json" 
+        } 
+      }
+    );
 
   } catch (error) {
     console.error("Error handling request:", error);
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500, headers: corsHeaders });
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || "Internal Server Error",
+        details: "Check the function logs for more information"
+      }), 
+      { 
+        status: 500, 
+        headers: { 
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        } 
+      }
+    );
   }
 });
