@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
+import { Json } from "@/integrations/supabase/types";
 
 interface WebsiteAnalysis {
   id: string;
@@ -32,6 +33,11 @@ interface WebsiteAnalysis {
   ai_analysis: string | null;
   last_scanned: string;
   seo_metrics: Record<string, any>;
+  competitor_data?: Record<string, any>;
+  raw_scan_data?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
+  user_id: string;
 }
 
 const WebsiteIntegrations = () => {
@@ -54,7 +60,22 @@ const WebsiteIntegrations = () => {
         .order('last_scanned', { ascending: false });
 
       if (error) throw error;
-      setAnalyses(data || []);
+
+      // Transform the data to ensure correct types
+      const transformedData: WebsiteAnalysis[] = (data || []).map(item => ({
+        ...item,
+        seo_metrics: typeof item.seo_metrics === 'string' 
+          ? JSON.parse(item.seo_metrics) 
+          : item.seo_metrics || {},
+        competitor_data: typeof item.competitor_data === 'string'
+          ? JSON.parse(item.competitor_data)
+          : item.competitor_data || {},
+        raw_scan_data: typeof item.raw_scan_data === 'string'
+          ? JSON.parse(item.raw_scan_data)
+          : item.raw_scan_data || {},
+      }));
+
+      setAnalyses(transformedData);
     } catch (error) {
       console.error("Error fetching analyses:", error);
       toast.error("Failed to load website analyses");
@@ -276,4 +297,3 @@ const WebsiteIntegrations = () => {
 };
 
 export default WebsiteIntegrations;
-
