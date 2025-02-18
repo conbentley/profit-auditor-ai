@@ -70,16 +70,37 @@ export function LatestAuditReport() {
       
       if (!data) return null;
 
-      // Ensure the data matches our expected structure
+      // Ensure the data matches our expected structure with proper type checking
+      const monthlyMetrics = data.monthly_metrics as Record<string, any>;
       const processedData: DatabaseAudit = {
         id: data.id,
         created_at: data.created_at,
         user_id: data.user_id,
         audit_date: data.audit_date,
         summary: data.summary,
-        monthly_metrics: data.monthly_metrics as MonthlyMetrics,
-        kpis: data.kpis as KPI[],
-        recommendations: data.recommendations as Recommendation[]
+        monthly_metrics: {
+          revenue: Number(monthlyMetrics?.revenue ?? 0),
+          profit_margin: Number(monthlyMetrics?.profit_margin ?? 0),
+          expense_ratio: Number(monthlyMetrics?.expense_ratio ?? 0),
+          audit_alerts: Number(monthlyMetrics?.audit_alerts ?? 0),
+          previous_month: {
+            revenue: Number(monthlyMetrics?.previous_month?.revenue ?? 0),
+            profit_margin: Number(monthlyMetrics?.previous_month?.profit_margin ?? 0),
+            expense_ratio: Number(monthlyMetrics?.previous_month?.expense_ratio ?? 0),
+            audit_alerts: Number(monthlyMetrics?.previous_month?.audit_alerts ?? 0),
+          }
+        },
+        kpis: (data.kpis as any[] ?? []).map((kpi: any) => ({
+          metric: String(kpi?.metric ?? ''),
+          value: String(kpi?.value ?? ''),
+          trend: kpi?.trend ? String(kpi.trend) : undefined
+        })),
+        recommendations: (data.recommendations as any[] ?? []).map((rec: any) => ({
+          title: String(rec?.title ?? ''),
+          description: String(rec?.description ?? ''),
+          impact: String(rec?.impact ?? 'Medium'),
+          difficulty: String(rec?.difficulty ?? 'Medium')
+        }))
       };
 
       return processedData;
@@ -166,6 +187,13 @@ Difficulty: ${rec.difficulty}
     );
   }
 
+  // Format numerical values with proper null checks
+  const formatCurrency = (value: number) => 
+    `£${value.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`;
+  
+  const formatPercentage = (value: number) => 
+    `${value.toFixed(2)}%`;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -210,19 +238,19 @@ Difficulty: ${rec.difficulty}
         <Card className="p-4">
           <div className="text-sm text-muted-foreground">Total Revenue</div>
           <div className="text-lg font-semibold mt-1">
-            £{latestAudit.monthly_metrics.revenue.toLocaleString('en-GB', { maximumFractionDigits: 2 })}
+            {formatCurrency(latestAudit.monthly_metrics.revenue)}
           </div>
         </Card>
         <Card className="p-4">
           <div className="text-sm text-muted-foreground">Profit Margin</div>
           <div className="text-lg font-semibold mt-1">
-            {latestAudit.monthly_metrics.profit_margin.toFixed(2)}%
+            {formatPercentage(latestAudit.monthly_metrics.profit_margin)}
           </div>
         </Card>
         <Card className="p-4">
           <div className="text-sm text-muted-foreground">Expense Ratio</div>
           <div className="text-lg font-semibold mt-1">
-            {latestAudit.monthly_metrics.expense_ratio.toFixed(2)}%
+            {formatPercentage(latestAudit.monthly_metrics.expense_ratio)}
           </div>
         </Card>
       </div>
