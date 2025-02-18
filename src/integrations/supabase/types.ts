@@ -714,6 +714,9 @@ export type Database = {
       }
       spreadsheet_uploads: {
         Row: {
+          analysis_results: Json | null
+          analyzed_at: string | null
+          data_summary: Json | null
           file_path: string
           file_type: string
           filename: string
@@ -721,10 +724,14 @@ export type Database = {
           metadata: Json | null
           processed: boolean | null
           processing_error: string | null
+          row_count: number | null
           uploaded_at: string | null
           user_id: string
         }
         Insert: {
+          analysis_results?: Json | null
+          analyzed_at?: string | null
+          data_summary?: Json | null
           file_path: string
           file_type: string
           filename: string
@@ -732,10 +739,14 @@ export type Database = {
           metadata?: Json | null
           processed?: boolean | null
           processing_error?: string | null
+          row_count?: number | null
           uploaded_at?: string | null
           user_id: string
         }
         Update: {
+          analysis_results?: Json | null
+          analyzed_at?: string | null
+          data_summary?: Json | null
           file_path?: string
           file_type?: string
           filename?: string
@@ -743,6 +754,7 @@ export type Database = {
           metadata?: Json | null
           processed?: boolean | null
           processing_error?: string | null
+          row_count?: number | null
           uploaded_at?: string | null
           user_id?: string
         }
