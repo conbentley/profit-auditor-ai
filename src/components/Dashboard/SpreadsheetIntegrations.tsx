@@ -113,30 +113,54 @@ export default function SpreadsheetIntegrations() {
   };
 
   const handleDelete = async (id: string) => {
+    setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Optimistically remove from UI
-      setUploads(current => current.filter(upload => upload.id !== id));
-      
-      const { error } = await supabase
+      // Get the file details first
+      const { data: fileData, error: fetchError } = await supabase
+        .from('spreadsheet_uploads')
+        .select('file_path')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Delete from storage bucket first
+      if (fileData?.file_path) {
+        const { error: storageError } = await supabase.storage
+          .from('spreadsheets')
+          .remove([fileData.file_path]);
+
+        if (storageError) throw storageError;
+      }
+
+      // Delete all related audit records
+      await supabase
+        .from('financial_audits')
+        .delete()
+        .eq('user_id', user.id);
+
+      // Delete from spreadsheet_uploads table
+      const { error: dbError } = await supabase
         .from('spreadsheet_uploads')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id); // Ensure user can only delete their own uploads
+        .eq('user_id', user.id);
 
-      if (error) {
-        // If deletion fails, restore the item
-        await fetchUploads();
-        throw error;
-      }
+      if (dbError) throw dbError;
 
-      toast.success("Spreadsheet deleted successfully");
+      // Remove from UI state
+      setUploads(current => current.filter(upload => upload.id !== id));
+      toast.success("Spreadsheet and all related data deleted successfully");
+
     } catch (error) {
       console.error("Delete failed:", error);
       toast.error("Failed to delete spreadsheet");
     } finally {
+      setIsLoading(false);
       setDeleteId(null);
     }
   };
