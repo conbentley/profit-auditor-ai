@@ -8,6 +8,7 @@ import EcommerceIntegrations from "@/components/Dashboard/EcommerceIntegrations"
 import MarketplaceIntegrations from "@/components/Dashboard/MarketplaceIntegrations";
 import CRMIntegrations from "@/components/Dashboard/CRMIntegrations";
 import PaymentIntegrations from "@/components/Dashboard/PaymentIntegrations";
+import SpreadsheetIntegrations from "@/components/Dashboard/SpreadsheetIntegrations";
 
 export default function Integrations() {
   return <div className="flex min-h-screen bg-gray-50">
@@ -25,6 +26,7 @@ export default function Integrations() {
                 <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
                 <TabsTrigger value="payment">Payment</TabsTrigger>
                 <TabsTrigger value="crm">CRM</TabsTrigger>
+                <TabsTrigger value="spreadsheet">Spreadsheet</TabsTrigger>
               </TabsList>
               
               <TabsContent value="financial">
@@ -45,6 +47,10 @@ export default function Integrations() {
 
               <TabsContent value="crm">
                 <CRMIntegrations />
+              </TabsContent>
+
+              <TabsContent value="spreadsheet">
+                <SpreadsheetIntegrations />
               </TabsContent>
             </Tabs>
           </Card>
