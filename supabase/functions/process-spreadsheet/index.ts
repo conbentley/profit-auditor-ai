@@ -8,6 +8,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface ColumnType {
+  type: 'units' | 'sale_price' | 'cost_price' | 'revenue' | 'cost' | 'other';
+  index: number;
+}
+
+function identifyColumns(headers: string[]): ColumnType[] {
+  return headers.map((header, index) => {
+    const headerLower = header.toLowerCase();
+    
+    if (headerLower.includes('units') || headerLower.includes('quantity') || headerLower.includes('sold')) {
+      return { type: 'units', index };
+    }
+    if (headerLower.includes('sale price') || headerLower.includes('unit price')) {
+      return { type: 'sale_price', index };
+    }
+    if (headerLower.includes('cost price') || headerLower.includes('unit cost')) {
+      return { type: 'cost_price', index };
+    }
+    if (headerLower.includes('total revenue') || headerLower.includes('revenue')) {
+      return { type: 'revenue', index };
+    }
+    if (headerLower.includes('total cost') || headerLower.includes('cost')) {
+      return { type: 'cost', index };
+    }
+    return { type: 'other', index };
+  });
+}
+
+function extractNumber(value: any): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    // Remove currency symbols and any non-numeric characters except dots and minus
+    const cleaned = value.replace(/[^0-9.-]+/g, '');
+    return Number(cleaned) || 0;
+  }
+  return 0;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -22,34 +60,22 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Fetch upload details with error handling
     const { data: upload, error: uploadError } = await supabaseAdmin
       .from('spreadsheet_uploads')
       .select('*')
       .eq('id', uploadId)
       .single();
 
-    if (uploadError) {
-      console.error('Error fetching upload:', uploadError);
-      throw new Error(`Failed to fetch upload: ${uploadError.message}`);
-    }
-    if (!upload) {
-      throw new Error('Upload not found');
+    if (uploadError || !upload) {
+      throw new Error(uploadError?.message || 'Upload not found');
     }
 
-    console.log('Processing file:', upload.filename, 'Type:', upload.file_type);
-
-    // Download file with error handling
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from('spreadsheets')
       .download(upload.file_path);
 
-    if (downloadError) {
-      console.error('Error downloading file:', downloadError);
-      throw new Error(`Failed to download file: ${downloadError.message}`);
-    }
-    if (!fileData) {
-      throw new Error('No file data received');
+    if (downloadError || !fileData) {
+      throw new Error(downloadError?.message || 'Failed to download file');
     }
 
     let rows = [];
@@ -66,108 +92,99 @@ serve(async (req) => {
       } else {
         const arrayBuffer = await fileData.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        
-        if (workbook.SheetNames.length === 0) {
-          throw new Error('No sheets found in Excel file');
-        }
-        
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-        
-        if (data.length === 0) {
-          throw new Error('Sheet is empty');
-        }
-        
         headers = data[0].map(header => String(header || '').trim());
-        rows = data.slice(1).filter(row => 
-          Array.isArray(row) && 
-          row.length === headers.length && 
-          row.some(cell => cell !== undefined && cell !== null && cell !== '')
-        );
+        rows = data.slice(1).filter(row => row.length === headers.length);
       }
-    } catch (parseError) {
-      console.error('Error parsing file:', parseError);
-      throw new Error(`Failed to parse file: ${parseError.message}`);
+    } catch (error) {
+      throw new Error(`Failed to parse file: ${error.message}`);
     }
 
-    console.log('Parsed data:', {
-      headers,
-      rowCount: rows.length,
-      sampleRow: rows[0]
-    });
+    console.log('Headers found:', headers);
+    const columns = identifyColumns(headers);
+    console.log('Column types identified:', columns);
 
-    if (headers.length === 0) {
-      throw new Error('No headers found in file');
-    }
-    if (rows.length === 0) {
-      throw new Error('No data rows found in file');
-    }
-
-    // Process the financial data
     let totalRevenue = 0;
-    let totalExpenses = 0;
+    let totalCost = 0;
     let transactions = [];
+    let warnings = [];
 
-    // Map headers to their financial type
-    const headerTypes = headers.map(header => {
-      const headerLower = header.toLowerCase();
-      if (headerLower.includes('revenue') || headerLower.includes('sales') || headerLower.includes('income')) {
-        return 'revenue';
-      } else if (headerLower.includes('expense') || headerLower.includes('cost')) {
-        return 'expense';
-      }
-      return 'other';
-    });
+    // Find relevant columns
+    const unitsCol = columns.find(col => col.type === 'units');
+    const salePriceCol = columns.find(col => col.type === 'sale_price');
+    const costPriceCol = columns.find(col => col.type === 'cost_price');
+    const revenueCol = columns.find(col => col.type === 'revenue');
+    const costCol = columns.find(col => col.type === 'cost');
 
-    console.log('Header types:', headerTypes);
-
-    // Process each row
     rows.forEach((row, rowIndex) => {
-      const transaction = {};
-      headers.forEach((header, colIndex) => {
-        const value = row[colIndex];
-        const numberValue = typeof value === 'string' ? 
-          Number(value.replace(/[^0-9.-]+/g, '')) : 
-          Number(value);
+      const units = unitsCol ? extractNumber(row[unitsCol.index]) : 0;
+      const salePrice = salePriceCol ? extractNumber(row[salePriceCol.index]) : 0;
+      const costPrice = costPriceCol ? extractNumber(row[costPriceCol.index]) : 0;
+      const statedRevenue = revenueCol ? extractNumber(row[revenueCol.index]) : 0;
+      const statedCost = costCol ? extractNumber(row[costCol.index]) : 0;
 
-        if (!isNaN(numberValue)) {
-          if (headerTypes[colIndex] === 'revenue') {
-            totalRevenue += numberValue;
-          } else if (headerTypes[colIndex] === 'expense') {
-            totalExpenses += numberValue;
-          }
-        }
-        transaction[header] = value;
+      // Calculate actual values
+      const calculatedRevenue = units * salePrice;
+      const calculatedCost = units * costPrice;
+
+      // Check for discrepancies
+      if (revenueCol && Math.abs(calculatedRevenue - statedRevenue) > 0.01) {
+        warnings.push(`Row ${rowIndex + 2}: Stated revenue (${statedRevenue}) differs from calculated revenue (${calculatedRevenue})`);
+      }
+      if (costCol && Math.abs(calculatedCost - statedCost) > 0.01) {
+        warnings.push(`Row ${rowIndex + 2}: Stated cost (${statedCost}) differs from calculated cost (${calculatedCost})`);
+      }
+
+      // Use calculated values instead of stated values
+      const rowRevenue = calculatedRevenue || statedRevenue;
+      const rowCost = calculatedCost || statedCost;
+
+      totalRevenue += rowRevenue;
+      totalCost += rowCost;
+
+      transactions.push({
+        units,
+        salePrice,
+        costPrice,
+        calculatedRevenue: rowRevenue,
+        calculatedCost: rowCost,
+        profit: rowRevenue - rowCost,
+        originalRow: row
       });
-      transactions.push(transaction);
     });
 
-    const profitMargin = totalRevenue > 0 ? 
-      ((totalRevenue - totalExpenses) / totalRevenue) * 100 : 0;
+    const profit = totalRevenue - totalCost;
+    const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
 
     console.log('Financial calculations:', {
       totalRevenue,
-      totalExpenses,
-      profitMargin
+      totalCost,
+      profit,
+      profitMargin,
+      warningCount: warnings.length
     });
 
     const analysis = {
       total_rows: rows.length,
       total_revenue: totalRevenue,
-      total_expenses: totalExpenses,
+      total_cost: totalCost,
+      profit: profit,
       profit_margin: profitMargin,
       headers: headers,
-      header_types: headerTypes,
+      column_types: columns,
+      warnings: warnings,
       insights: [
         `Total Revenue: £${totalRevenue.toFixed(2)}`,
-        `Total Expenses: £${totalExpenses.toFixed(2)}`,
-        `Profit Margin: ${profitMargin.toFixed(2)}%`
+        `Total Cost: £${totalCost.toFixed(2)}`,
+        `Total Profit: £${profit.toFixed(2)}`,
+        `Profit Margin: ${profitMargin.toFixed(2)}%`,
+        ...warnings
       ],
       sample_data: transactions.slice(0, 3),
       processed_at: new Date().toISOString()
     };
 
-    // Update the database with results
     const { error: updateError } = await supabaseAdmin
       .from('spreadsheet_uploads')
       .update({
@@ -180,24 +197,17 @@ serve(async (req) => {
       .eq('id', uploadId);
 
     if (updateError) {
-      console.error('Error updating analysis results:', updateError);
       throw new Error(`Failed to save analysis results: ${updateError.message}`);
     }
 
-    console.log('Successfully processed file');
-
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        analysis 
-      }),
+      JSON.stringify({ success: true, analysis }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Processing error:', error);
     
-    // Try to update the upload record with the error
     try {
       const supabaseAdmin = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -217,14 +227,8 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        details: error.stack
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
