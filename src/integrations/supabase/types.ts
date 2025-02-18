@@ -712,6 +712,42 @@ export type Database = {
         }
         Relationships: []
       }
+      spreadsheet_uploads: {
+        Row: {
+          file_path: string
+          file_type: string
+          filename: string
+          id: string
+          metadata: Json | null
+          processed: boolean | null
+          processing_error: string | null
+          uploaded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          file_path: string
+          file_type: string
+          filename: string
+          id?: string
+          metadata?: Json | null
+          processed?: boolean | null
+          processing_error?: string | null
+          uploaded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          file_path?: string
+          file_type?: string
+          filename?: string
+          id?: string
+          metadata?: Json | null
+          processed?: boolean | null
+          processing_error?: string | null
+          uploaded_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       support_tickets: {
         Row: {
           created_at: string
