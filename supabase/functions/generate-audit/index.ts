@@ -23,43 +23,82 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get spreadsheets
+    // Get spreadsheets that haven't been processed yet
     const { data: spreadsheets, error: spreadsheetsError } = await supabase
       .from('spreadsheet_uploads')
       .select('*')
-      .eq('user_id', user_id);
+      .eq('user_id', user_id)
+      .eq('processed', false)
+      .order('uploaded_at', { ascending: true });
 
     if (spreadsheetsError) throw spreadsheetsError;
-    if (!spreadsheets?.length) throw new Error('No spreadsheets found');
-
-    console.log(`Found ${spreadsheets.length} spreadsheets`);
-
-    // Process each spreadsheet
-    let allData = [];
-    for (const sheet of spreadsheets) {
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('spreadsheets')
-        .download(sheet.file_path);
-
-      if (downloadError) throw downloadError;
-
-      const arrayBuffer = await fileData.arrayBuffer();
-      const workbook = read(arrayBuffer);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = utils.sheet_to_json(worksheet);
-      allData = allData.concat(jsonData);
+    if (!spreadsheets?.length) {
+      return new Response(
+        JSON.stringify({ error: 'No new spreadsheets found to analyze' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
 
-    console.log(`Processed ${allData.length} total rows`);
+    console.log(`Found ${spreadsheets.length} unprocessed spreadsheets`);
+
+    // Process each spreadsheet
+    let combinedData: any[] = [];
+    for (const sheet of spreadsheets) {
+      try {
+        console.log(`Processing spreadsheet: ${sheet.filename}`);
+        
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('spreadsheets')
+          .download(sheet.file_path);
+
+        if (downloadError) {
+          console.error(`Error downloading ${sheet.filename}:`, downloadError);
+          continue;
+        }
+
+        const arrayBuffer = await fileData.arrayBuffer();
+        const workbook = read(arrayBuffer);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = utils.sheet_to_json(worksheet);
+        
+        console.log(`Extracted ${jsonData.length} rows from ${sheet.filename}`);
+        console.log('Sample data:', jsonData[0]);
+        
+        combinedData = combinedData.concat(jsonData);
+
+        // Mark spreadsheet as processed
+        await supabase
+          .from('spreadsheet_uploads')
+          .update({ processed: true, analyzed_at: new Date().toISOString() })
+          .eq('id', sheet.id);
+
+      } catch (error) {
+        console.error(`Error processing ${sheet.filename}:`, error);
+        await supabase
+          .from('spreadsheet_uploads')
+          .update({ 
+            processing_error: error.message,
+            analyzed_at: new Date().toISOString()
+          })
+          .eq('id', sheet.id);
+      }
+    }
+
+    if (combinedData.length === 0) {
+      throw new Error('No valid data found in spreadsheets');
+    }
+
+    console.log(`Total combined rows: ${combinedData.length}`);
 
     // Prepare data summary for OpenAI
     const dataSummary = {
-      totalRows: allData.length,
-      columns: Object.keys(allData[0] || {}),
-      sampleData: allData.slice(0, 5),
-      totals: allData.reduce((acc, row) => {
-        const revenue = Number(row['Revenue'] || row['Total Revenue (£)'] || 0);
-        const cost = Number(row['Cost'] || row['Total Cost (£)'] || 0);
+      totalRows: combinedData.length,
+      columns: Object.keys(combinedData[0] || {}),
+      sampleData: combinedData.slice(0, 5),
+      totals: combinedData.reduce((acc, row) => {
+        // Handle different possible column names
+        const revenue = Number(row['Revenue'] || row['Total Revenue (£)'] || row['Sale Price (£)'] || 0);
+        const cost = Number(row['Cost'] || row['Total Cost (£)'] || row['COGS (£)'] || 0);
         const units = Number(row['Units Sold'] || row['Quantity'] || 0);
         
         return {
@@ -70,6 +109,8 @@ serve(async (req) => {
       }, { revenue: 0, cost: 0, units: 0 })
     };
 
+    console.log('Data summary:', JSON.stringify(dataSummary, null, 2));
+
     // Get AI analysis
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -78,17 +119,36 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',
         messages: [
           {
             role: 'system',
             content: `You are a financial analyst AI. Analyze the business data and provide insights in the following JSON format ONLY:
             {
               "summary": "Brief overview of the financial situation",
+              "monthly_metrics": {
+                "revenue": number,
+                "profit_margin": number,
+                "expense_ratio": number,
+                "audit_alerts": number,
+                "previous_month": {
+                  "revenue": number,
+                  "profit_margin": number,
+                  "expense_ratio": number,
+                  "audit_alerts": number
+                }
+              },
+              "kpis": [
+                {
+                  "metric": "string",
+                  "value": "string",
+                  "trend": "string"
+                }
+              ],
               "recommendations": [
                 {
-                  "title": "Recommendation title",
-                  "description": "Detailed explanation",
+                  "title": "string",
+                  "description": "string",
                   "impact": "High/Medium/Low",
                   "difficulty": "Easy/Medium/Hard"
                 }
@@ -106,10 +166,8 @@ serve(async (req) => {
     const aiResult = await openAIResponse.json();
     console.log('AI Response:', aiResult.choices[0].message.content);
     
-    // Parse the AI response as JSON
-    const analysisJson = JSON.parse(aiResult.choices[0].message.content.trim());
-
-    console.log('Parsed Analysis:', analysisJson);
+    // Parse the AI response
+    const analysis = JSON.parse(aiResult.choices[0].message.content.trim());
 
     // Create audit record
     const { data: auditData, error: auditError } = await supabase
@@ -117,36 +175,10 @@ serve(async (req) => {
       .insert({
         user_id,
         audit_date: new Date().toISOString(),
-        summary: analysisJson.summary,
-        monthly_metrics: {
-          revenue: dataSummary.totals.revenue,
-          profit_margin: dataSummary.totals.revenue > 0 
-            ? ((dataSummary.totals.revenue - dataSummary.totals.cost) / dataSummary.totals.revenue) * 100 
-            : 0,
-          expense_ratio: dataSummary.totals.revenue > 0 
-            ? (dataSummary.totals.cost / dataSummary.totals.revenue) * 100 
-            : 0,
-          audit_alerts: 0,
-          previous_month: {
-            revenue: 0,
-            profit_margin: 0,
-            expense_ratio: 0,
-            audit_alerts: 0
-          }
-        },
-        kpis: [
-          {
-            metric: "Revenue",
-            value: `£${dataSummary.totals.revenue.toFixed(2)}`,
-            trend: "+0%"
-          },
-          {
-            metric: "Units Sold",
-            value: dataSummary.totals.units.toString(),
-            trend: "+0%"
-          }
-        ],
-        recommendations: analysisJson.recommendations
+        summary: analysis.summary,
+        monthly_metrics: analysis.monthly_metrics,
+        kpis: analysis.kpis,
+        recommendations: analysis.recommendations
       })
       .select()
       .single();
