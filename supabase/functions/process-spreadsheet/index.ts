@@ -128,13 +128,15 @@ serve(async (req) => {
 
     const { data: upload, error: uploadError } = await supabaseAdmin
       .from('spreadsheet_uploads')
-      .select('*, user_id')
+      .select('*')
       .eq('id', uploadId)
       .single();
 
     if (uploadError || !upload) {
       throw new Error(uploadError?.message || 'Upload not found');
     }
+
+    console.log('Retrieved upload:', upload);
 
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
       .from('spreadsheets')
@@ -144,128 +146,109 @@ serve(async (req) => {
       throw new Error(downloadError?.message || 'Failed to download file');
     }
 
+    console.log('Successfully downloaded file');
+
+    let workbook;
     let rows = [];
     let headers = [];
 
     try {
-      if (upload.file_type === 'csv') {
-        const text = await fileData.text();
-        const lines = text.split('\n');
-        headers = lines[0].split(',').map(header => header.trim());
-        rows = lines.slice(1)
-          .filter(line => line.trim())
-          .map(line => line.split(',').map(cell => cell.trim()));
-      } else {
-        const arrayBuffer = await fileData.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-        headers = data[0].map(header => String(header || '').trim());
-        rows = data.slice(1).filter(row => row.length === headers.length);
-      }
+      const arrayBuffer = await fileData.arrayBuffer();
+      console.log('File loaded into array buffer');
+      
+      workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      console.log('Workbook sheets:', workbook.SheetNames);
+      
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      console.log('Processing first sheet');
+      
+      const range = XLSX.utils.decode_range(firstSheet['!ref'] || 'A1');
+      console.log('Sheet range:', range);
+
+      const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: true, defval: null });
+      console.log('Raw data rows count:', data.length);
+      console.log('First few rows:', data.slice(0, 3));
+
+      headers = data[0].map(header => String(header || '').trim());
+      console.log('Headers:', headers);
+
+      rows = data.slice(1).filter(row => {
+        const hasData = row.some(cell => cell !== null && cell !== '');
+        const matchesHeaderLength = row.length === headers.length;
+        return hasData && matchesHeaderLength;
+      });
+
+      console.log('Processed rows count:', rows.length);
+      console.log('Sample first row:', rows[0]);
     } catch (error) {
+      console.error('Error parsing file:', error);
       throw new Error(`Failed to parse file: ${error.message}`);
     }
 
-    console.log('Found headers:', headers);
+    console.log('Beginning column identification');
     const columns = identifyColumns(headers);
-    console.log('Identified column types:', columns);
+    console.log('Identified columns:', columns);
 
     let totalRevenue = 0;
     let totalCost = 0;
-    const productMap = new Map<string, ProductMetrics>();
-    const warnings = [];
+    const productMap = new Map();
 
-    const productNameCol = columns.find(col => col.type === 'product_name');
+    const revenueCol = columns.find(col => col.type === 'revenue');
     const unitsCol = columns.find(col => col.type === 'units');
     const salePriceCol = columns.find(col => col.type === 'sale_price');
     const costPriceCol = columns.find(col => col.type === 'cost_price');
-    const revenueCol = columns.find(col => col.type === 'revenue');
+    const productNameCol = columns.find(col => col.type === 'product_name');
 
-    if (!productNameCol) {
-      console.log('No product name column identified, using first column as fallback');
-      columns[0] = { type: 'product_name', index: 0 };
-    }
-
-    console.log('Processing rows:', rows.length);
-    console.log('Sample first row:', rows[0]);
     console.log('Column mapping:', {
-      productName: productNameCol?.index,
+      revenue: revenueCol?.index,
       units: unitsCol?.index,
       salePrice: salePriceCol?.index,
       costPrice: costPriceCol?.index,
-      revenue: revenueCol?.index
+      productName: productNameCol?.index
     });
 
-    rows.forEach((row, rowIndex) => {
-      const productName = (productNameCol ? row[productNameCol.index] : row[0])?.toString() || `Product ${rowIndex + 1}`;
-      
-      // Try to get revenue directly if available, otherwise calculate from units * price
-      let revenue: number;
-      let units: number;
-      let salePrice: number;
-      
+    rows.forEach((row, index) => {
+      if (index === 0) {
+        console.log('Processing first row:', row);
+      }
+
+      let rowRevenue = 0;
+      let rowCost = 0;
+
       if (revenueCol) {
-        revenue = extractNumber(row[revenueCol.index]);
-        units = unitsCol ? extractNumber(row[unitsCol.index]) : 1;
-        salePrice = revenue / (units || 1);
-      } else {
-        units = unitsCol ? extractNumber(row[unitsCol.index]) : 1;
-        salePrice = salePriceCol ? extractNumber(row[salePriceCol.index]) : 0;
-        revenue = units * salePrice;
+        rowRevenue = extractNumber(row[revenueCol.index]);
+      } else if (unitsCol && salePriceCol) {
+        const units = extractNumber(row[unitsCol.index]);
+        const price = extractNumber(row[salePriceCol.index]);
+        rowRevenue = units * price;
       }
 
-      const costPrice = costPriceCol ? extractNumber(row[costPriceCol.index]) : 0;
-      const cost = units * costPrice;
-      const profit = revenue - cost;
+      if (costPriceCol && unitsCol) {
+        const units = extractNumber(row[unitsCol.index]);
+        const cost = extractNumber(row[costPriceCol.index]);
+        rowCost = units * cost;
+      }
 
-      if (rowIndex === 0) {
+      if (index === 0) {
         console.log('First row calculations:', {
-          productName,
-          units,
-          salePrice,
-          costPrice,
-          revenue,
-          cost,
-          profit
+          revenue: rowRevenue,
+          cost: rowCost
         });
       }
 
-      totalRevenue += revenue;
-      totalCost += cost;
-
-      if (!productMap.has(productName)) {
-        productMap.set(productName, {
-          name: productName,
-          totalUnits: 0,
-          totalRevenue: 0,
-          totalCost: 0,
-          profit: 0,
-          profitMargin: 0,
-          averagePrice: 0
-        });
-      }
-
-      const metrics = productMap.get(productName)!;
-      metrics.totalUnits += units;
-      metrics.totalRevenue += revenue;
-      metrics.totalCost += cost;
-      metrics.profit += profit;
-      metrics.profitMargin = metrics.totalRevenue > 0 ? (metrics.profit / metrics.totalRevenue) * 100 : 0;
-      metrics.averagePrice = metrics.totalUnits > 0 ? metrics.totalRevenue / metrics.totalUnits : 0;
+      totalRevenue += rowRevenue;
+      totalCost += rowCost;
     });
 
-    console.log('Total calculations:', {
-      totalRevenue,
-      totalCost,
-      productCount: productMap.size
+    console.log('Final totals:', {
+      revenue: totalRevenue,
+      cost: totalCost,
+      rowsProcessed: rows.length
     });
-
-    const productMetrics = Array.from(productMap.values());
-    const insights = generateInsights(productMetrics, totalRevenue);
 
     const totalProfit = totalRevenue - totalCost;
     const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+    const expenseRatio = totalRevenue > 0 ? (totalCost / totalRevenue) * 100 : 0;
 
     const analysis = {
       total_rows: rows.length,
@@ -273,24 +256,9 @@ serve(async (req) => {
         total_revenue: totalRevenue,
         total_cost: totalCost,
         total_profit: totalProfit,
-        profit_margin: profitMargin
+        profit_margin: profitMargin,
+        expense_ratio: expenseRatio
       },
-      product_analysis: productMetrics,
-      headers: headers,
-      column_types: columns,
-      warnings: warnings,
-      insights: insights,
-      ai_analysis: await getAIAnalysis({
-        financial_metrics: {
-          total_revenue: totalRevenue,
-          total_cost: totalCost,
-          total_profit: totalProfit,
-          profit_margin: profitMargin
-        },
-        product_analysis: productMetrics,
-        insights: insights
-      }),
-      sample_data: rows.slice(0, 3),
       processed_at: new Date().toISOString()
     };
 
@@ -320,14 +288,11 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        details: "If the error persists, please ensure your spreadsheet has clear column headers and that the OpenAI API key is properly configured."
+        details: "An error occurred while processing the spreadsheet. Check the logs for more details."
       }),
       { 
         status: 500, 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }
