@@ -1,35 +1,38 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { read, utils } from 'https://esm.sh/xlsx@0.18.5'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-function generateInsights(metrics: any) {
-  const insights = [];
+async function readSpreadsheetData(supabase: any, filePath: string) {
+  console.log('Reading spreadsheet:', filePath);
   
-  if (metrics.profitMargin < 20) {
-    insights.push(`Your profit margin of ${metrics.profitMargin.toFixed(1)}% is below the recommended 20%. Consider reviewing pricing strategy or reducing costs.`);
-  } else {
-    insights.push(`Your healthy profit margin of ${metrics.profitMargin.toFixed(1)}% indicates good business performance.`);
+  try {
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('spreadsheets')
+      .download(filePath);
+
+    if (downloadError) {
+      console.error('Download error:', downloadError);
+      throw downloadError;
+    }
+
+    const arrayBuffer = await fileData.arrayBuffer();
+    const workbook = read(arrayBuffer);
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    const jsonData = utils.sheet_to_json(worksheet);
+
+    console.log('Spreadsheet data sample:', jsonData.slice(0, 2));
+    return jsonData;
+  } catch (error) {
+    console.error('Error reading spreadsheet:', error);
+    throw error;
   }
-
-  if (metrics.totalUnits > 0) {
-    const avgRevenuePerUnit = metrics.totalRevenue / metrics.totalUnits;
-    insights.push(`Average revenue per unit is £${avgRevenuePerUnit.toFixed(2)}.`);
-  }
-
-  if (metrics.expenseRatio > 80) {
-    insights.push(`Your expense ratio of ${metrics.expenseRatio.toFixed(1)}% is high. Focus on cost reduction.`);
-  }
-
-  return insights;
-}
-
-function formatCurrency(amount: number): string {
-  return `£${amount.toFixed(2)}`;
 }
 
 serve(async (req) => {
@@ -46,89 +49,64 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Get all spreadsheets for the user
     const { data: spreadsheets, error: spreadsheetsError } = await supabase
       .from('spreadsheet_uploads')
       .select('*')
-      .eq('user_id', user_id)
-      .eq('processed', true)
-      .is('processing_error', null);
+      .eq('user_id', user_id);
 
-    if (spreadsheetsError) {
-      console.error('Error fetching spreadsheets:', spreadsheetsError);
-      throw spreadsheetsError;
+    if (spreadsheetsError) throw spreadsheetsError;
+    
+    if (!spreadsheets || spreadsheets.length === 0) {
+      throw new Error('No spreadsheets found');
     }
 
-    console.log('Processing spreadsheets:', spreadsheets?.length);
+    console.log('Processing spreadsheets:', spreadsheets.length);
 
-    // Aggregate all metrics
-    const metrics = {
-      totalRevenue: 0,
-      totalCost: 0,
-      totalUnits: 0,
-      transactionCount: 0,
-      profitMargin: 0,
-      expenseRatio: 0,
-      topProducts: new Map()
-    };
-
-    if (spreadsheets && spreadsheets.length > 0) {
-      spreadsheets.forEach(sheet => {
-        const summary = sheet.data_summary;
-        if (summary) {
-          metrics.totalRevenue += summary.total_revenue || 0;
-          metrics.totalCost += summary.total_expenses || 0;
-          metrics.transactionCount += summary.transaction_count || 0;
-          metrics.totalUnits += summary.total_units || 0;
-
-          // Process transaction-level data
-          if (summary.transactions) {
-            summary.transactions.forEach((trans: any) => {
-              if (trans.sku || trans.product_id || trans.item) {
-                const productId = trans.sku || trans.product_id || trans.item;
-                const currentCount = metrics.topProducts.get(productId) || 0;
-                metrics.topProducts.set(productId, currentCount + (trans.units || 1));
-              }
-            });
-          }
-        }
-      });
+    // Read data from all spreadsheets
+    let allData: any[] = [];
+    for (const sheet of spreadsheets) {
+      try {
+        const sheetData = await readSpreadsheetData(supabase, sheet.file_path);
+        allData = allData.concat(sheetData);
+        console.log(`Read ${sheetData.length} rows from ${sheet.filename}`);
+      } catch (error) {
+        console.error(`Error processing ${sheet.filename}:`, error);
+        throw new Error(`Failed to process spreadsheet ${sheet.filename}: ${error.message}`);
+      }
     }
 
-    // Calculate derived metrics
-    metrics.profitMargin = metrics.totalRevenue > 0 
-      ? ((metrics.totalRevenue - metrics.totalCost) / metrics.totalRevenue) * 100 
+    console.log(`Total rows processed: ${allData.length}`);
+
+    // Calculate metrics
+    const metrics = allData.reduce((acc, row) => {
+      const revenue = Number(row['Total Revenue (£)'] || row['Revenue'] || 0);
+      const cost = Number(row['Total Cost (£)'] || row['COGS (£)'] || 0);
+      const units = Number(row['Units Sold'] || 0);
+
+      return {
+        revenue: acc.revenue + revenue,
+        cost: acc.cost + cost,
+        units: acc.units + units
+      };
+    }, { revenue: 0, cost: 0, units: 0 });
+
+    const profitMargin = metrics.revenue > 0 
+      ? ((metrics.revenue - metrics.cost) / metrics.revenue) * 100 
       : 0;
-    
-    metrics.expenseRatio = metrics.totalRevenue > 0 
-      ? (metrics.totalCost / metrics.totalRevenue) * 100 
-      : 0;
 
-    // Get top products
-    const topProducts = Array.from(metrics.topProducts.entries())
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 3);
-
-    const insights = generateInsights(metrics);
-    
-    console.log('Calculated metrics:', {
-      revenue: metrics.totalRevenue,
-      cost: metrics.totalCost,
-      transactions: metrics.transactionCount,
-      units: metrics.totalUnits,
-      margin: metrics.profitMargin
-    });
-
+    // Create audit record
     const { data: auditData, error: auditError } = await supabase
       .from('financial_audits')
       .insert({
         user_id,
         audit_date: new Date(year, month - 1).toISOString(),
-        summary: `Analysis of ${spreadsheets?.length} uploads shows ${metrics.transactionCount} transactions and ${metrics.totalUnits} units sold. Revenue: ${formatCurrency(metrics.totalRevenue)} with ${metrics.profitMargin.toFixed(1)}% profit margin. ${insights[0]}`,
+        summary: `Analysis of ${spreadsheets.length} uploads shows ${allData.length} transactions and ${metrics.units} units sold. Revenue: £${metrics.revenue.toFixed(2)} with ${profitMargin.toFixed(1)}% profit margin.`,
         monthly_metrics: {
-          revenue: metrics.totalRevenue,
-          profit_margin: metrics.profitMargin,
-          expense_ratio: metrics.expenseRatio,
-          audit_alerts: insights.length,
+          revenue: metrics.revenue,
+          profit_margin: profitMargin,
+          expense_ratio: metrics.revenue > 0 ? (metrics.cost / metrics.revenue) * 100 : 0,
+          audit_alerts: metrics.revenue === 0 ? 1 : 0,
           previous_month: {
             revenue: 0,
             profit_margin: 0,
@@ -139,32 +117,30 @@ serve(async (req) => {
         kpis: [
           {
             metric: "Revenue",
-            value: formatCurrency(metrics.totalRevenue),
+            value: `£${metrics.revenue.toFixed(2)}`,
             trend: "Current period"
           },
           {
             metric: "Profit Margin",
-            value: `${metrics.profitMargin.toFixed(1)}%`,
+            value: `${profitMargin.toFixed(1)}%`,
             trend: "Current period"
           },
           {
             metric: "Units Sold",
-            value: metrics.totalUnits.toString(),
+            value: metrics.units.toString(),
             trend: "Current period"
           }
         ],
         recommendations: [
           {
             title: "Business Performance",
-            description: insights.join(' '),
+            description: `Your profit margin of ${profitMargin.toFixed(1)}% is ${profitMargin < 20 ? 'below' : 'above'} the recommended 20%. ${profitMargin < 20 ? 'Consider reviewing pricing strategy or reducing costs.' : 'Keep up the good work!'}`,
             impact: "High",
             difficulty: "Medium"
           },
           {
             title: "Product Analysis",
-            description: topProducts.length > 0 
-              ? `Your top product ${topProducts[0][0]} accounts for ${topProducts[0][1]} units. Consider expanding this product line.`
-              : `Consider tracking product-specific performance to identify top sellers.`,
+            description: `Consider tracking product-specific performance to identify top sellers.`,
             impact: "High",
             difficulty: "Medium"
           }
@@ -173,12 +149,7 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (auditError) {
-      console.error('Error creating audit:', auditError);
-      throw auditError;
-    }
-
-    console.log('Audit generated successfully:', auditData?.id);
+    if (auditError) throw auditError;
 
     return new Response(
       JSON.stringify({ message: 'Audit generated successfully', data: auditData }),
