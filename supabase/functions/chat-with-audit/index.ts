@@ -7,37 +7,73 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const formatMetricTrend = (current: number, previous: number): string => {
+const formatMetricTrend = (current: number | null | undefined, previous: number | null | undefined): string => {
+  // Handle null/undefined values
+  if (current == null || previous == null || previous === 0) {
+    return "N/A";
+  }
+  
   const percentageChange = ((current - previous) / previous) * 100;
   return percentageChange >= 0 ? `+${percentageChange.toFixed(2)}%` : `${percentageChange.toFixed(2)}%`;
+};
+
+const formatNumber = (num: number | null | undefined): string => {
+  if (num == null) return "N/A";
+  return num.toLocaleString();
+};
+
+const formatPercentage = (num: number | null | undefined): string => {
+  if (num == null) return "N/A";
+  return `${num.toFixed(2)}%`;
 };
 
 const formatAuditContext = (audit: any) => {
   if (!audit) return "No audit data available.";
 
-  const metrics = audit.monthly_metrics;
-  const trends = {
-    revenue: formatMetricTrend(metrics.revenue, metrics.previous_month.revenue),
-    profit_margin: formatMetricTrend(metrics.profit_margin, metrics.previous_month.profit_margin),
-    expense_ratio: formatMetricTrend(metrics.expense_ratio, metrics.previous_month.expense_ratio),
-  };
+  try {
+    const metrics = audit.monthly_metrics || {};
+    const previousMetrics = metrics.previous_month || {};
+    
+    // Safely access metrics with fallbacks
+    const trends = {
+      revenue: formatMetricTrend(
+        Number(metrics.revenue || 0),
+        Number(previousMetrics.revenue || 0)
+      ),
+      profit_margin: formatMetricTrend(
+        Number(metrics.profit_margin || 0),
+        Number(previousMetrics.profit_margin || 0)
+      ),
+      expense_ratio: formatMetricTrend(
+        Number(metrics.expense_ratio || 0),
+        Number(previousMetrics.expense_ratio || 0)
+      ),
+    };
 
-  return `
-Latest Financial Audit Summary (${audit.audit_date}):
+    return `
+Latest Financial Audit Summary (${audit.audit_date || 'Date not available'}):
 
 Key Metrics:
-- Revenue: £${metrics.revenue.toLocaleString()} (${trends.revenue} from previous month)
-- Profit Margin: ${metrics.profit_margin.toFixed(2)}% (${trends.profit_margin} from previous month)
-- Expense Ratio: ${metrics.expense_ratio.toFixed(2)}% (${trends.expense_ratio} from previous month)
+- Revenue: £${formatNumber(Number(metrics.revenue || 0))} (${trends.revenue} from previous month)
+- Profit Margin: ${formatPercentage(Number(metrics.profit_margin || 0))} (${trends.profit_margin} from previous month)
+- Expense Ratio: ${formatPercentage(Number(metrics.expense_ratio || 0))} (${trends.expense_ratio} from previous month)
 
-Summary: ${audit.summary}
+Summary: ${audit.summary || 'No summary available'}
 
 KPIs:
-${audit.kpis.map((kpi: any) => `- ${kpi.metric}: ${kpi.value}${kpi.trend ? ` (${kpi.trend})` : ''}`).join('\n')}
+${Array.isArray(audit.kpis) ? audit.kpis.map((kpi: any) => 
+  `- ${kpi.metric || 'Unknown metric'}: ${kpi.value || 'N/A'}${kpi.trend ? ` (${kpi.trend})` : ''}`
+).join('\n') : 'No KPIs available'}
 
 Key Recommendations:
-${audit.recommendations.map((rec: any) => `- ${rec.title} (Impact: ${rec.impact}, Difficulty: ${rec.difficulty})`).join('\n')}
+${Array.isArray(audit.recommendations) ? audit.recommendations.map((rec: any) => 
+  `- ${rec.title || 'Untitled'} (Impact: ${rec.impact || 'Unknown'}, Difficulty: ${rec.difficulty || 'Unknown'})`
+).join('\n') : 'No recommendations available'}
 `;
+  } catch (error) {
+    console.error('Error formatting audit context:', error);
+    return "Error formatting audit data. Please check the data structure.";
+  }
 };
 
 serve(async (req) => {
@@ -47,7 +83,10 @@ serve(async (req) => {
 
   try {
     const { query, auditContext } = await req.json();
+    console.log('Received audit context:', JSON.stringify(auditContext, null, 2));
+    
     const formattedAuditContext = formatAuditContext(auditContext);
+    console.log('Formatted audit context:', formattedAuditContext);
 
     const systemPrompt = `You are an AI financial advisor for the Profit Auditor platform. You have access to the latest financial audit data and metrics. Your role is to:
 1. Analyze financial trends and patterns
@@ -102,7 +141,10 @@ When answering:
   } catch (error) {
     console.error('Error in chat-with-audit function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: 'Check the function logs for more information'
+      }),
       { 
         status: 500,
         headers: { 
