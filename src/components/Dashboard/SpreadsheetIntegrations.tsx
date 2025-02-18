@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface SpreadsheetUpload {
   id: string;
@@ -21,6 +22,7 @@ export default function SpreadsheetIntegrations() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploads, setUploads] = useState<SpreadsheetUpload[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUploads();
@@ -61,23 +63,53 @@ export default function SpreadsheetIntegrations() {
     setIsUploading(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Create FormData object
       const formData = new FormData();
       formData.append('file', file);
 
       const response = await supabase.functions.invoke('upload-spreadsheet', {
         body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
       });
 
-      if (response.error) throw response.error;
+      console.log('Upload response:', response);
 
-      toast.success("Spreadsheet uploaded successfully. The AI will analyze it in the next audit.");
+      if (response.error) {
+        throw new Error(response.error.message || 'Upload failed');
+      }
+
+      toast.success("Spreadsheet uploaded successfully");
       event.target.value = '';
-      fetchUploads();
+      await fetchUploads();
     } catch (error) {
       console.error("Upload failed:", error);
-      toast.error("Failed to upload spreadsheet");
+      toast.error("Failed to upload spreadsheet: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('spreadsheet_uploads')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success("Spreadsheet deleted successfully");
+      await fetchUploads();
+    } catch (error) {
+      console.error("Delete failed:", error);
+      toast.error("Failed to delete spreadsheet");
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -110,8 +142,17 @@ export default function SpreadsheetIntegrations() {
                 disabled={isUploading}
                 className="w-full"
               >
-                <Upload className="w-4 h-4 mr-2" />
-                {isUploading ? "Uploading..." : "Upload Spreadsheet"}
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Spreadsheet
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -139,6 +180,7 @@ export default function SpreadsheetIntegrations() {
                 <TableHead>Filename</TableHead>
                 <TableHead>Upload Date</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -159,6 +201,37 @@ export default function SpreadsheetIntegrations() {
                     ) : (
                       <span className="text-yellow-500">Pending Analysis</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <AlertDialog open={deleteId === upload.id} onOpenChange={(open) => !open && setDeleteId(null)}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteId(upload.id)}
+                          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Spreadsheet</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this spreadsheet? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(upload.id)}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </TableCell>
                 </TableRow>
               ))}
