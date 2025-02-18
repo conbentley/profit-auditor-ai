@@ -8,7 +8,6 @@ const corsHeaders = {
 };
 
 const formatMetricTrend = (current: number | null | undefined, previous: number | null | undefined): string => {
-  // Handle null/undefined values
   if (current == null || previous == null || previous === 0) {
     return "N/A";
   }
