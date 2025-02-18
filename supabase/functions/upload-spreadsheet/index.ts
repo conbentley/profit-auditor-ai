@@ -11,14 +11,51 @@ const corsHeaders = {
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 function preprocessSpreadsheetData(data: any[]) {
+  // Log the first row to see the actual column names
+  if (data.length > 0) {
+    console.log('Available columns:', Object.keys(data[0]));
+  }
+
   return data.map(row => {
-    // Parse numerical values safely
-    const unitsSold = parseFloat(String(row['Units Sold']).replace(/[^0-9.-]+/g, '')) || 0;
-    const salePrice = parseFloat(String(row['Sale Price (£)'].replace(/[^0-9.-]+/g, ''))) || 0;
-    const cogs = parseFloat(String(row['COGS (£)'].replace(/[^0-9.-]+/g, ''))) || 0;
+    // Safely extract values with fallbacks for different possible column names
+    const unitsSold = parseFloat(String(
+      row['Units Sold'] || 
+      row['UnitsSold'] || 
+      row['Quantity'] || 
+      row['units_sold'] || 
+      '0'
+    ).replace(/[^0-9.-]+/g, '')) || 0;
+
+    const salePrice = parseFloat(String(
+      row['Sale Price (£)'] ||
+      row['SalePrice'] ||
+      row['Price'] ||
+      row['sale_price'] ||
+      '0'
+    ).replace(/[^0-9.-]+/g, '')) || 0;
+
+    const cogs = parseFloat(String(
+      row['COGS (£)'] ||
+      row['COGS'] ||
+      row['Cost'] ||
+      row['cost_of_goods'] ||
+      '0'
+    ).replace(/[^0-9.-]+/g, '')) || 0;
 
     const totalRevenue = unitsSold * salePrice;
     const totalCost = unitsSold * cogs;
+
+    // Log the processed values for debugging
+    console.log('Processed row:', {
+      originalRow: row,
+      processedValues: {
+        unitsSold,
+        salePrice,
+        cogs,
+        totalRevenue,
+        totalCost
+      }
+    });
 
     return {
       ...row,
@@ -204,6 +241,12 @@ serve(async (req) => {
     const workbook = read(new Uint8Array(arrayBuffer), { type: 'array' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = utils.sheet_to_json(worksheet);
+
+    if (data.length === 0) {
+      throw new Error('Spreadsheet is empty');
+    }
+
+    console.log('First row of data:', data[0]);
 
     // Analyze with GPT
     console.log('Analyzing with GPT...');
