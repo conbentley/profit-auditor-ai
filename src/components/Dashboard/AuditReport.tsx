@@ -24,18 +24,19 @@ export default function AuditReport() {
         .delete()
         .eq('user_id', user.id);
 
-      // Get all uploaded spreadsheets
+      // Get all uploaded spreadsheets, regardless of processed status
       const { data: spreadsheets, error: spreadsheetsError } = await supabase
         .from('spreadsheet_uploads')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('processed', false);
+        .eq('user_id', user.id);
 
       if (spreadsheetsError) throw spreadsheetsError;
 
       if (!spreadsheets || spreadsheets.length === 0) {
         throw new Error("No spreadsheets found. Please upload your data first.");
       }
+
+      console.log('Found spreadsheets:', spreadsheets.length);
 
       // Invalidate queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
@@ -46,6 +47,7 @@ export default function AuditReport() {
         user_id: user.id,
         month: currentDate.getMonth() + 1,
         year: currentDate.getFullYear(),
+        spreadsheets_count: spreadsheets.length
       });
 
       const response = await supabase.functions.invoke('generate-audit', {
@@ -53,7 +55,7 @@ export default function AuditReport() {
           user_id: user.id,
           month: currentDate.getMonth() + 1,
           year: currentDate.getFullYear(),
-          process_spreadsheets: true, // New flag to indicate we should process spreadsheets
+          process_spreadsheets: true,
         },
       });
 
@@ -64,7 +66,7 @@ export default function AuditReport() {
         throw response.error;
       }
 
-      // Mark spreadsheets as processed
+      // Mark all spreadsheets as processed
       await supabase
         .from('spreadsheet_uploads')
         .update({ processed: true })
