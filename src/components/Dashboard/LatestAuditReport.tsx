@@ -1,112 +1,20 @@
 
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, RefreshCcw, MessageSquare, Download, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
-
-interface MonthlyMetrics {
-  revenue: number;
-  profit_margin: number;
-  expense_ratio: number;
-  audit_alerts: number;
-  previous_month: {
-    revenue: number;
-    profit_margin: number;
-    expense_ratio: number;
-    audit_alerts: number;
-  };
-}
-
-interface KPI {
-  metric: string;
-  value: string;
-  trend?: string;
-}
-
-interface Recommendation {
-  title: string;
-  description: string;
-  impact: string;
-  difficulty: string;
-}
-
-interface DatabaseAudit {
-  id: string;
-  created_at: string;
-  user_id: string;
-  audit_date: string;
-  summary: string;
-  monthly_metrics: MonthlyMetrics;
-  kpis: KPI[];
-  recommendations: Recommendation[];
-}
+import { useAuditData } from "@/hooks/useAuditData";
+import { AuditMetrics } from "./AuditMetrics";
+import { AuditKPIs } from "./AuditKPIs";
+import { AuditRecommendations } from "./AuditRecommendations";
 
 export function LatestAuditReport() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-
-  const { data: latestAudit, isLoading, isError } = useQuery({
-    queryKey: ['latest-audit'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { data, error } = await supabase
-        .from('financial_audits')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-      
-      if (!data) return null;
-
-      // Ensure the data matches our expected structure with proper type checking
-      const monthlyMetrics = data.monthly_metrics as Record<string, any>;
-      const processedData: DatabaseAudit = {
-        id: data.id,
-        created_at: data.created_at,
-        user_id: data.user_id,
-        audit_date: data.audit_date,
-        summary: data.summary,
-        monthly_metrics: {
-          revenue: Number(monthlyMetrics?.revenue ?? 0),
-          profit_margin: Number(monthlyMetrics?.profit_margin ?? 0),
-          expense_ratio: Number(monthlyMetrics?.expense_ratio ?? 0),
-          audit_alerts: Number(monthlyMetrics?.audit_alerts ?? 0),
-          previous_month: {
-            revenue: Number(monthlyMetrics?.previous_month?.revenue ?? 0),
-            profit_margin: Number(monthlyMetrics?.previous_month?.profit_margin ?? 0),
-            expense_ratio: Number(monthlyMetrics?.previous_month?.expense_ratio ?? 0),
-            audit_alerts: Number(monthlyMetrics?.previous_month?.audit_alerts ?? 0),
-          }
-        },
-        kpis: (data.kpis as any[] ?? []).map((kpi: any) => ({
-          metric: String(kpi?.metric ?? ''),
-          value: String(kpi?.value ?? ''),
-          trend: kpi?.trend ? String(kpi.trend) : undefined
-        })),
-        recommendations: (data.recommendations as any[] ?? []).map((rec: any) => ({
-          title: String(rec?.title ?? ''),
-          description: String(rec?.description ?? ''),
-          impact: String(rec?.impact ?? 'Medium'),
-          difficulty: String(rec?.difficulty ?? 'Medium')
-        }))
-      };
-
-      return processedData;
-    },
-    refetchInterval: 30000,
-  });
+  const { data: latestAudit, isLoading, isError } = useAuditData();
 
   const handleExport = async () => {
     if (!latestAudit) return;
@@ -187,13 +95,6 @@ Difficulty: ${rec.difficulty}
     );
   }
 
-  // Format numerical values with proper null checks
-  const formatCurrency = (value: number) => 
-    `£${value.toLocaleString('en-GB', { maximumFractionDigits: 2 })}`;
-  
-  const formatPercentage = (value: number) => 
-    `${value.toFixed(2)}%`;
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -234,26 +135,7 @@ Difficulty: ${rec.difficulty}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Total Revenue</div>
-          <div className="text-lg font-semibold mt-1">
-            {formatCurrency(latestAudit.monthly_metrics.revenue)}
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Profit Margin</div>
-          <div className="text-lg font-semibold mt-1">
-            {formatPercentage(latestAudit.monthly_metrics.profit_margin)}
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Expense Ratio</div>
-          <div className="text-lg font-semibold mt-1">
-            {formatPercentage(latestAudit.monthly_metrics.expense_ratio)}
-          </div>
-        </Card>
-      </div>
+      <AuditMetrics metrics={latestAudit.monthly_metrics} />
 
       <ScrollArea className="h-[400px] rounded-md border p-4">
         <div className="space-y-6">
@@ -262,46 +144,8 @@ Difficulty: ${rec.difficulty}
             <p className="text-muted-foreground whitespace-pre-line">{latestAudit.summary}</p>
           </div>
 
-          <div>
-            <h4 className="font-medium mb-2">Key Performance Indicators</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {latestAudit.kpis.map((kpi, index) => (
-                <Card key={index} className="p-4">
-                  <div className="text-sm text-muted-foreground">{kpi.metric}</div>
-                  <div className="text-lg font-semibold mt-1">{kpi.value}</div>
-                  {kpi.trend && (
-                    <div className={`text-sm mt-1 ${
-                      kpi.trend.includes('+') ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {kpi.trend}
-                    </div>
-                  )}
-                </Card>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-medium mb-2">Recommendations</h4>
-            <div className="space-y-4">
-              {latestAudit.recommendations.map((rec, index) => (
-                <Card key={index} className="p-4">
-                  <h5 className="font-medium">{rec.title}</h5>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {rec.description}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                      Impact: {rec.impact}
-                    </span>
-                    <span className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded">
-                      Difficulty: {rec.difficulty}
-                    </span>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
+          <AuditKPIs kpis={latestAudit.kpis} />
+          <AuditRecommendations recommendations={latestAudit.recommendations} />
         </div>
       </ScrollArea>
     </div>
