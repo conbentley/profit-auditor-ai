@@ -73,7 +73,7 @@ async function analyzeWithGPT(data: any[]) {
     const processedData = preprocessSpreadsheetData(data);
     console.log('Processed data sample:', processedData.slice(0, 2));
 
-    // Calculate basic metrics with safeguards against division by zero
+    // Calculate basic metrics with safeguards
     const totals = processedData.reduce((acc, row) => {
       acc.revenue += Number(row['Total Revenue (£)']) || 0;
       acc.costs += Number(row['Total Cost (£)']) || 0;
@@ -82,11 +82,10 @@ async function analyzeWithGPT(data: any[]) {
     }, { revenue: 0, costs: 0, units: 0 });
 
     const profit = totals.revenue - totals.costs;
-    // Prevent division by zero
     const profitMargin = totals.revenue > 0 ? (profit / totals.revenue) * 100 : 0;
     const expenseRatio = totals.revenue > 0 ? (totals.costs / totals.revenue) * 100 : 0;
 
-    // Ensure all metrics are finite numbers
+    // Format metrics to avoid floating point issues
     const metrics = {
       total_revenue: Number(totals.revenue.toFixed(2)),
       total_costs: Number(totals.costs.toFixed(2)),
@@ -94,48 +93,51 @@ async function analyzeWithGPT(data: any[]) {
       expense_ratio: Number(expenseRatio.toFixed(2))
     };
 
-    const prompt = `
-    Based on this sales data summary:
-    ${JSON.stringify({ metrics, sample_data: processedData.slice(0, 5) }, null, 2)}
+    const prompt = `You are a financial analyst. You must return a JSON object that EXACTLY matches this structure. Do not deviate from this format at all:
 
-    Return a financial analysis in this EXACT format:
+{
+  "metrics": {
+    "total_revenue": ${metrics.total_revenue},
+    "total_costs": ${metrics.total_costs},
+    "profit_margin": ${metrics.profit_margin},
+    "expense_ratio": ${metrics.expense_ratio}
+  },
+  "summary": "A brief analysis of the financial data",
+  "kpis": [
     {
-      "metrics": {
-        "total_revenue": ${metrics.total_revenue},
-        "total_costs": ${metrics.total_costs},
-        "profit_margin": ${metrics.profit_margin},
-        "expense_ratio": ${metrics.expense_ratio}
-      },
-      "summary": "Brief executive summary",
-      "kpis": [
-        {
-          "metric": "Revenue",
-          "value": "£${metrics.total_revenue.toLocaleString()}",
-          "trend": "Current period"
-        },
-        {
-          "metric": "Profit Margin",
-          "value": "${metrics.profit_margin.toFixed(1)}%",
-          "trend": "Current period"
-        },
-        {
-          "metric": "Units Sold",
-          "value": "${totals.units}",
-          "trend": "Current period"
-        }
-      ],
-      "recommendations": [
-        {
-          "title": "string",
-          "description": "string",
-          "impact": "High | Medium | Low",
-          "difficulty": "High | Medium | Low",
-          "estimated_savings": 0
-        }
-      ]
+      "metric": "Revenue",
+      "value": "£${metrics.total_revenue.toLocaleString()}",
+      "trend": "Current period"
+    },
+    {
+      "metric": "Profit Margin",
+      "value": "${metrics.profit_margin.toFixed(1)}%",
+      "trend": "Current period"
+    },
+    {
+      "metric": "Units Sold",
+      "value": "${totals.units}",
+      "trend": "Current period"
     }
+  ],
+  "recommendations": [
+    {
+      "title": "Cost Reduction",
+      "description": "Review supplier contracts to optimize costs",
+      "impact": "High",
+      "difficulty": "Medium",
+      "estimated_savings": 5000
+    }
+  ]
+}
 
-    Important: Use EXACTLY these numbers, only add analysis in summary and recommendations.`;
+Based on this financial data:
+${JSON.stringify({ metrics, sample_data: processedData.slice(0, 5) }, null, 2)}
+
+Remember:
+1. Keep all numerical values exactly as provided
+2. Only modify the summary text and recommendations
+3. Maintain the exact JSON structure`;
 
     console.log('Sending prompt to GPT...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -149,38 +151,74 @@ async function analyzeWithGPT(data: any[]) {
         messages: [
           { 
             role: 'system', 
-            content: 'You are a financial analyst. Return only valid JSON matching the specified format exactly. Do not modify any numerical values provided.'
+            content: 'You are a financial analyst. You must return valid JSON that exactly matches the specified format. Do not modify any provided numerical values.'
           },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.1 // Lower temperature for more consistent output
+        temperature: 0.1,
       }),
     });
+
+    if (!response.ok) {
+      throw new Error(`GPT API error: ${response.status}`);
+    }
 
     const result = await response.json();
     console.log('GPT raw response:', result);
 
     if (!result.choices?.[0]?.message?.content) {
-      throw new Error('Invalid response from GPT');
+      throw new Error('Empty response from GPT');
     }
 
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(result.choices[0].message.content.trim());
+      console.log('Parsed GPT response:', parsedResponse);
     } catch (e) {
       console.error('Failed to parse GPT response:', e);
       console.log('Raw content:', result.choices[0].message.content);
       throw new Error('Invalid JSON in GPT response');
     }
-    
-    // Validate response structure
-    if (!parsedResponse.metrics?.total_revenue ||
-        !parsedResponse.metrics?.total_costs ||
-        !parsedResponse.summary ||
-        !Array.isArray(parsedResponse.kpis) ||
-        !Array.isArray(parsedResponse.recommendations)) {
-      throw new Error('GPT response missing required fields');
+
+    // Detailed validation of response structure
+    if (!parsedResponse.metrics) {
+      throw new Error('Missing metrics object');
     }
+    if (typeof parsedResponse.metrics.total_revenue !== 'number') {
+      throw new Error('Invalid total_revenue format');
+    }
+    if (typeof parsedResponse.metrics.total_costs !== 'number') {
+      throw new Error('Invalid total_costs format');
+    }
+    if (typeof parsedResponse.metrics.profit_margin !== 'number') {
+      throw new Error('Invalid profit_margin format');
+    }
+    if (typeof parsedResponse.metrics.expense_ratio !== 'number') {
+      throw new Error('Invalid expense_ratio format');
+    }
+    if (typeof parsedResponse.summary !== 'string' || parsedResponse.summary.trim() === '') {
+      throw new Error('Missing or invalid summary');
+    }
+    if (!Array.isArray(parsedResponse.kpis) || parsedResponse.kpis.length === 0) {
+      throw new Error('Missing or invalid KPIs array');
+    }
+    if (!Array.isArray(parsedResponse.recommendations) || parsedResponse.recommendations.length === 0) {
+      throw new Error('Missing or invalid recommendations array');
+    }
+
+    // Validate specific fields in each KPI
+    parsedResponse.kpis.forEach((kpi: any, index: number) => {
+      if (!kpi.metric || !kpi.value || !kpi.trend) {
+        throw new Error(`Invalid KPI at index ${index}`);
+      }
+    });
+
+    // Validate specific fields in each recommendation
+    parsedResponse.recommendations.forEach((rec: any, index: number) => {
+      if (!rec.title || !rec.description || !rec.impact || !rec.difficulty) {
+        throw new Error(`Invalid recommendation at index ${index}`);
+      }
+    });
 
     return parsedResponse;
   } catch (error) {
