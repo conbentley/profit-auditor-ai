@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { read, utils } from 'https://esm.sh/xlsx@0.18.5'
@@ -7,254 +8,78 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-function parseFinancialValue(value: any): number {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const cleaned = value.replace(/[^0-9.-]/g, '');
-    return Number(cleaned) || 0;
-  }
-  return 0;
-}
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
-function identifyColumns(headers: string[]) {
-  const columnMapping = {
-    revenue: ['revenue', 'income', 'sales', 'earnings'],
-    expense: ['expense', 'cost', 'expenditure', 'payment', 'spending'],
-    date: ['date', 'period', 'timestamp', 'time'],
-    product: ['product', 'item', 'service', 'goods'],
-    quantity: ['quantity', 'qty', 'units', 'amount'],
-    price: ['price', 'rate', 'unit price', 'cost per']
-  };
-
-  const identifiedColumns: Record<string, string> = {};
-  
-  headers.forEach(header => {
-    const lowerHeader = header.toLowerCase();
-    for (const [type, keywords] of Object.entries(columnMapping)) {
-      if (keywords.some(keyword => lowerHeader.includes(keyword))) {
-        identifiedColumns[type] = header;
-        break;
-      }
-    }
-  });
-
-  console.log('Identified columns:', identifiedColumns);
-  return identifiedColumns;
-}
-
-function generateExecutiveSummary(analysisResults: any) {
-  const {
-    total_revenue,
-    total_expense,
-    profit_margin,
-    expense_ratio,
-    processed_transactions
-  } = analysisResults;
-
-  let summary = `Financial analysis based on ${processed_transactions} transactions shows `;
-  
-  if (profit_margin > 20) {
-    summary += `strong profitability with a ${profit_margin.toFixed(1)}% margin. `;
-  } else if (profit_margin > 10) {
-    summary += `moderate profitability with a ${profit_margin.toFixed(1)}% margin. `;
-  } else {
-    summary += `concerning profitability with only a ${profit_margin.toFixed(1)}% margin. `;
-  }
-
-  if (expense_ratio > 80) {
-    summary += `High expense ratio of ${expense_ratio.toFixed(1)}% indicates significant cost management issues. `;
-  } else if (expense_ratio > 60) {
-    summary += `Moderate expense ratio of ${expense_ratio.toFixed(1)}% suggests room for cost optimization. `;
-  } else {
-    summary += `Healthy expense ratio of ${expense_ratio.toFixed(1)}% demonstrates good cost control. `;
-  }
-
-  return summary;
-}
-
-function generateRecommendations(analysisResults: any) {
-  const recommendations = [];
-  const {
-    profit_margin,
-    expense_ratio,
-    total_revenue,
-    total_expense
-  } = analysisResults;
-
-  // Profitability Recommendations
-  if (profit_margin < 20) {
-    recommendations.push({
-      title: "Improve Profit Margins",
-      description: "Current profit margins are below industry standards. Consider pricing strategy review and cost optimization.",
-      impact: "High",
-      difficulty: "Medium",
-      estimated_savings: total_revenue * 0.05 // 5% of revenue potential improvement
-    });
-  }
-
-  // Cost Management Recommendations
-  if (expense_ratio > 60) {
-    recommendations.push({
-      title: "Reduce Operating Expenses",
-      description: `High expense ratio of ${expense_ratio.toFixed(1)}% indicates potential for cost reduction. Review major expense categories.`,
-      impact: "High",
-      difficulty: "Medium",
-      estimated_savings: total_expense * 0.1 // 10% of expenses potential savings
-    });
-  }
-
-  // Revenue Growth Recommendations
-  recommendations.push({
-    title: "Revenue Growth Opportunities",
-    description: "Analyze top-performing products and services for expansion opportunities.",
-    impact: "High",
-    difficulty: "High",
-    estimated_savings: total_revenue * 0.15 // 15% revenue growth potential
-  });
-
-  return recommendations;
-}
-
-function calculateDetailedKPIs(analysisResults: any) {
-  const {
-    total_revenue,
-    total_expense,
-    monthly_revenue
-  } = analysisResults;
-
-  // Convert monthly revenue object to array for trend analysis
-  const monthlyRevenueArray = Object.entries(monthly_revenue)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([_, value]) => Number(value));
-
-  const kpis = [
-    {
-      metric: "Total Revenue",
-      value: formatCurrency(total_revenue),
-      trend: calculateTrend(monthlyRevenueArray)
-    },
-    {
-      metric: "Profit Margin",
-      value: `${(((total_revenue - total_expense) / total_revenue) * 100).toFixed(1)}%`,
-      trend: "+0.5% vs prev month"
-    },
-    {
-      metric: "Expense Ratio",
-      value: `${((total_expense / total_revenue) * 100).toFixed(1)}%`,
-      trend: "-0.3% vs prev month"
-    }
-  ];
-
-  return kpis;
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP'
-  }).format(amount);
-}
-
-function calculateTrend(values: number[]) {
-  if (values.length < 2) return "N/A";
-  const lastMonth = values[values.length - 1];
-  const previousMonth = values[values.length - 2];
-  const percentageChange = ((lastMonth - previousMonth) / previousMonth) * 100;
-  return `${percentageChange >= 0 ? '+' : ''}${percentageChange.toFixed(1)}% vs prev month`;
-}
-
-async function analyzeSpreadsheetData(workbook: any) {
+async function analyzeWithGPT(data: any[]) {
   try {
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
-    const data = utils.sheet_to_json(worksheet, { header: 1 });
+    const dataString = JSON.stringify(data, null, 2);
     
-    if (data.length < 2) { // Need at least headers and one row
-      throw new Error('Spreadsheet is empty or missing data rows');
-    }
+    const prompt = `
+    Analyze this financial data and provide:
+    1. Total revenue, costs, and profit
+    2. Key metrics like profit margin and expense ratio
+    3. A brief executive summary
+    4. 2-3 actionable recommendations
+    
+    The data is in JSON format:
+    ${dataString}
 
-    const headers = data[0] as string[];
-    const rows = data.slice(1);
-
-    console.log('Headers:', headers);
-    console.log('First row:', rows[0]);
-
-    const identifiedColumns = identifyColumns(headers);
-    console.log('Column identification:', identifiedColumns);
-
-    let totalRevenue = 0;
-    let totalExpense = 0;
-    let transactionCount = 0;
-    const products = new Set();
-    const monthlyRevenue: Record<string, number> = {};
-
-    rows.forEach((row: any[], rowIndex: number) => {
-      const rowData = headers.reduce((acc, header, index) => {
-        acc[header] = row[index];
-        return acc;
-      }, {} as Record<string, any>);
-
-      console.log(`Processing row ${rowIndex + 1}:`, rowData);
-
-      if (identifiedColumns.revenue) {
-        const revenue = parseFinancialValue(rowData[identifiedColumns.revenue]);
-        totalRevenue += revenue;
-        console.log(`Revenue found: ${revenue}`);
-      }
-
-      if (identifiedColumns.expense) {
-        const expense = parseFinancialValue(rowData[identifiedColumns.expense]);
-        totalExpense += expense;
-        console.log(`Expense found: ${expense}`);
-      }
-
-      if (identifiedColumns.product && rowData[identifiedColumns.product]) {
-        products.add(rowData[identifiedColumns.product]);
-      }
-
-      if (identifiedColumns.date && rowData[identifiedColumns.date]) {
-        const date = new Date(rowData[identifiedColumns.date]);
-        if (!isNaN(date.getTime())) {
-          const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
-          monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + 
-            (identifiedColumns.revenue ? parseFinancialValue(rowData[identifiedColumns.revenue]) : 0);
+    Respond in this exact JSON format:
+    {
+      "metrics": {
+        "total_revenue": number,
+        "total_costs": number,
+        "profit_margin": number,
+        "expense_ratio": number
+      },
+      "summary": "string",
+      "kpis": [
+        {
+          "metric": "string",
+          "value": "string",
+          "trend": "string"
         }
-      }
+      ],
+      "recommendations": [
+        {
+          "title": "string",
+          "description": "string",
+          "impact": "string",
+          "difficulty": "string",
+          "estimated_savings": number
+        }
+      ]
+    }`;
 
-      transactionCount++;
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are a financial analyst. Always return properly formatted JSON.'
+          },
+          { role: 'user', content: prompt }
+        ],
+      }),
     });
 
-    const profitMargin = totalRevenue > 0 ? ((totalRevenue - totalExpense) / totalRevenue) * 100 : 0;
-    const expenseRatio = totalRevenue > 0 ? (totalExpense / totalRevenue) * 100 : 0;
+    const result = await response.json();
+    console.log('GPT Analysis:', result);
 
-    const summary = {
-      total_rows: rows.length,
-      processed_transactions: transactionCount,
-      total_revenue: totalRevenue,
-      total_expense: totalExpense,
-      profit_margin: profitMargin,
-      expense_ratio: expenseRatio,
-      unique_products: products.size,
-      identified_columns: identifiedColumns,
-      monthly_revenue: monthlyRevenue,
-      has_date_column: !!identifiedColumns.date,
-      sample_products: Array.from(products).slice(0, 5)
-    };
-
-    console.log('Analysis summary:', summary);
-
-    return {
-      summary,
-      sample_data: rows.slice(0, 5).map(row => 
-        headers.reduce((acc, header, index) => {
-          acc[header] = row[index];
-          return acc;
-        }, {})
-      ),
-      column_analysis: identifiedColumns
-    };
+    try {
+      return JSON.parse(result.choices[0].message.content);
+    } catch (e) {
+      console.error('Failed to parse GPT response:', e);
+      throw new Error('Invalid analysis format received');
+    }
   } catch (error) {
-    console.error('Error in analyzeSpreadsheetData:', error);
+    console.error('Error in GPT analysis:', error);
     throw error;
   }
 }
@@ -273,8 +98,6 @@ serve(async (req) => {
       throw new Error('No file uploaded');
     }
 
-    console.log('File received:', file.name, 'Type:', file.type);
-
     // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -289,69 +112,50 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Clean up old data first
+    // Clean up old data
     console.log('Cleaning up old data...');
+    await supabase.from('financial_audits').delete().eq('user_id', user.id);
     
-    // Delete old financial audits
-    const { error: deleteAuditError } = await supabase
-      .from('financial_audits')
-      .delete()
-      .eq('user_id', user.id);
-    
-    if (deleteAuditError) {
-      console.error('Error deleting old audits:', deleteAuditError);
-    }
-
-    // Delete old spreadsheet uploads
-    const { data: oldUploads, error: fetchError } = await supabase
+    const { data: oldUploads } = await supabase
       .from('spreadsheet_uploads')
       .select('file_path')
       .eq('user_id', user.id);
 
-    if (!fetchError && oldUploads) {
-      // Delete old files from storage
+    if (oldUploads) {
       for (const upload of oldUploads) {
         if (upload.file_path) {
-          await supabase.storage
-            .from('spreadsheets')
-            .remove([upload.file_path]);
+          await supabase.storage.from('spreadsheets').remove([upload.file_path]);
         }
       }
-
-      // Delete old upload records
-      await supabase
-        .from('spreadsheet_uploads')
-        .delete()
-        .eq('user_id', user.id);
+      await supabase.from('spreadsheet_uploads').delete().eq('user_id', user.id);
     }
 
-    // Generate unique file path
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
-
-    console.log('Starting file analysis...');
-    // Read file content for analysis
+    // Read and parse file
+    console.log('Reading file...');
     const arrayBuffer = await file.arrayBuffer();
     const workbook = read(new Uint8Array(arrayBuffer), { type: 'array' });
-    
-    // Analyze the data
-    console.log('Processing workbook...');
-    const analysisResults = await analyzeSpreadsheetData(workbook);
-    console.log('Analysis complete:', analysisResults);
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = utils.sheet_to_json(worksheet);
 
-    // Upload file to storage
-    console.log('Uploading file to storage...');
+    console.log('Sample of parsed data:', data.slice(0, 2));
+
+    // Analyze with GPT
+    console.log('Analyzing with GPT...');
+    const analysis = await analyzeWithGPT(data);
+    console.log('GPT Analysis results:', analysis);
+
+    // Store file
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+    
     const { error: storageError } = await supabase.storage
       .from('spreadsheets')
       .upload(fileName, file);
 
-    if (storageError) {
-      throw storageError;
-    }
+    if (storageError) throw storageError;
 
-    // Create database record with analysis results
-    console.log('Saving analysis results...');
-    const { data: uploadData, error: uploadError } = await supabase
+    // Create upload record
+    const { error: uploadError } = await supabase
       .from('spreadsheet_uploads')
       .insert({
         user_id: user.id,
@@ -359,31 +163,18 @@ serve(async (req) => {
         file_type: file.type,
         file_path: fileName,
         processed: true,
-        row_count: analysisResults.summary.total_rows,
-        data_summary: analysisResults.summary,
-        analysis_results: {
-          sample_data: analysisResults.sample_data,
-          column_analysis: analysisResults.column_analysis
-        },
+        row_count: data.length,
+        data_summary: analysis.metrics,
         analyzed_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+      });
 
-    if (uploadError) {
-      console.error('Error saving to database:', uploadError);
-      await supabase.storage
-        .from('spreadsheets')
-        .remove([fileName]);
-      throw uploadError;
-    }
+    if (uploadError) throw uploadError;
 
-    // Create new financial audit with enhanced analysis
-    console.log('Creating new audit with enhanced analysis...');
+    // Create financial audit
     const monthlyMetrics = {
-      revenue: analysisResults.summary.total_revenue,
-      profit_margin: analysisResults.summary.profit_margin,
-      expense_ratio: analysisResults.summary.expense_ratio,
+      revenue: analysis.metrics.total_revenue,
+      profit_margin: analysis.metrics.profit_margin,
+      expense_ratio: analysis.metrics.expense_ratio,
       audit_alerts: 0,
       previous_month: {
         revenue: 0,
@@ -393,49 +184,33 @@ serve(async (req) => {
       }
     };
 
-    const summary = generateExecutiveSummary(analysisResults.summary);
-    const recommendations = generateRecommendations(analysisResults.summary);
-    const kpis = calculateDetailedKPIs(analysisResults.summary);
-
     const { error: auditError } = await supabase
       .from('financial_audits')
       .insert({
         user_id: user.id,
         monthly_metrics: monthlyMetrics,
         audit_date: new Date().toISOString(),
-        summary: summary,
-        kpis: kpis,
-        recommendations: recommendations
+        summary: analysis.summary,
+        kpis: analysis.kpis,
+        recommendations: analysis.recommendations
       });
 
-    if (auditError) {
-      console.error('Error creating audit:', auditError);
-    }
+    if (auditError) throw auditError;
 
     return new Response(
       JSON.stringify({ 
-        message: 'File uploaded and analyzed successfully',
-        data: uploadData
+        message: 'File analyzed successfully',
+        analysis 
       }),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error processing upload:', error);
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'An unknown error occurred' 
-      }),
+      JSON.stringify({ error: error.message }),
       { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400
       }
     );
