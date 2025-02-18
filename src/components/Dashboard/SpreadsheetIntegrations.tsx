@@ -9,12 +9,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Upload, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 
 interface SpreadsheetUpload {
   id: string;
   filename: string;
   file_type: string;
+  file_path: string;
   uploaded_at: string | null;
   processed: boolean | null;
   processing_error: string | null;
@@ -69,20 +70,30 @@ const SpreadsheetIntegrations = () => {
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', uploadFile);
+      const filePath = `${Date.now()}_${uploadFile.name}`;
 
-      const { data, error } = await supabase.storage
+      // Upload file to storage
+      const { data: storageData, error: storageError } = await supabase.storage
         .from('spreadsheets')
-        .upload(`${Date.now()}_${uploadFile.name}`, uploadFile);
+        .upload(filePath, uploadFile);
 
-      if (error) throw error;
+      if (storageError) throw storageError;
 
+      // Get the user's ID
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Insert record into spreadsheet_uploads table
       const { error: dbError } = await supabase.from('spreadsheet_uploads').insert({
         filename: uploadFile.name,
-        file_type: fileExt,
+        file_path: filePath,
+        file_type: fileExt || '',
         uploaded_at: new Date().toISOString(),
-        processed: false
+        processed: false,
+        user_id: user.id
       });
 
       if (dbError) throw dbError;
