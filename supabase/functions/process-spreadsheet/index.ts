@@ -1,116 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
-import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
+
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from '@supabase/supabase-js';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-interface ColumnType {
-  type: 'product_name' | 'units' | 'sale_price' | 'cost_price' | 'revenue' | 'cost' | 'date' | 'category' | 'other';
-  index: number;
-}
-
-interface ProductMetrics {
-  name: string;
-  totalUnits: number;
-  totalRevenue: number;
-  totalCost: number;
-  profit: number;
-  profitMargin: number;
-  averagePrice: number;
-}
-
-function identifyColumns(headers: string[]): ColumnType[] {
-  console.log('Attempting to identify columns from headers:', headers);
-  
-  return headers.map((header, index) => {
-    const headerLower = header.toLowerCase().trim();
-    console.log(`Analyzing header: "${headerLower}" at index ${index}`);
-    
-    if (
-      headerLower.includes('product') || 
-      headerLower.includes('item') || 
-      headerLower.includes('name') ||
-      headerLower.includes('description') ||
-      headerLower.includes('sku') ||
-      headerLower.includes('goods')
-    ) {
-      console.log(`Found product name column: "${header}"`);
-      return { type: 'product_name', index };
-    }
-    
-    if (headerLower.includes('units') || headerLower.includes('quantity') || headerLower.includes('sold') || headerLower.includes('qty')) {
-      return { type: 'units', index };
-    }
-    if (headerLower.includes('sale price') || headerLower.includes('unit price') || headerLower.includes('selling price') || headerLower.match(/price(?!\s*cost)/)) {
-      return { type: 'sale_price', index };
-    }
-    if (headerLower.includes('cost price') || headerLower.includes('unit cost') || headerLower.includes('buying price')) {
-      return { type: 'cost_price', index };
-    }
-    if (headerLower.includes('date') || headerLower.includes('period')) {
-      return { type: 'date', index };
-    }
-    if (headerLower.includes('category') || headerLower.includes('type')) {
-      return { type: 'category', index };
-    }
-    if (headerLower.includes('total revenue') || headerLower.includes('revenue') || headerLower.includes('sales')) {
-      return { type: 'revenue', index };
-    }
-    if (headerLower.includes('total cost') || headerLower.includes('cost')) {
-      return { type: 'cost', index };
-    }
-    return { type: 'other', index };
-  });
-}
-
-function extractNumber(value: any): number {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    const cleaned = value.replace(/[^0-9.-]+/g, '');
-    return Number(cleaned) || 0;
-  }
-  return 0;
-}
-
-async function getAIAnalysis(data: any) {
-  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!openAIApiKey) {
-    throw new Error('OpenAI API key not configured');
-  }
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a financial analyst AI that provides detailed insights about business performance based on spreadsheet data. Focus on key metrics, trends, and actionable recommendations.'
-          },
-          {
-            role: 'user',
-            content: `Please analyze this financial data and provide insights: ${JSON.stringify(data, null, 2)}`
-          }
-        ],
-      }),
-    });
-
-    const result = await response.json();
-    return result.choices[0].message.content;
-  } catch (error) {
-    console.error('Error getting AI analysis:', error);
-    throw error;
-  }
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -119,237 +15,120 @@ serve(async (req) => {
 
   try {
     const { uploadId } = await req.json();
-    console.log('Starting to process upload:', uploadId);
-    
-    const supabaseAdmin = createClient(
+
+    // Initialize Supabase client
+    const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: upload, error: uploadError } = await supabaseAdmin
+    // Get the uploaded file details
+    const { data: upload, error: uploadError } = await supabaseClient
       .from('spreadsheet_uploads')
       .select('*')
       .eq('id', uploadId)
       .single();
 
-    if (uploadError || !upload) {
-      throw new Error(uploadError?.message || 'Upload not found');
-    }
+    if (uploadError) throw uploadError;
+    if (!upload) throw new Error('Upload not found');
 
-    console.log('Retrieved upload:', upload);
-
-    const { data: fileData, error: downloadError } = await supabaseAdmin.storage
+    // Download the file from storage
+    const { data: fileData, error: fileError } = await supabaseClient.storage
       .from('spreadsheets')
       .download(upload.file_path);
 
-    if (downloadError || !fileData) {
-      throw new Error(downloadError?.message || 'Failed to download file');
-    }
+    if (fileError) throw fileError;
 
-    console.log('Successfully downloaded file');
+    // Convert the file to text
+    const text = await fileData.text();
+    const rows = text.split('\n').map(row => row.split(','));
 
-    let workbook;
-    let rows = [];
-    let headers = [];
-
-    try {
-      const arrayBuffer = await fileData.arrayBuffer();
-      console.log('File loaded into array buffer');
-      
-      workbook = XLSX.read(arrayBuffer, { type: 'array' });
-      console.log('Workbook sheets:', workbook.SheetNames);
-      
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      console.log('Processing first sheet');
-      
-      const range = XLSX.utils.decode_range(firstSheet['!ref'] || 'A1');
-      console.log('Sheet range:', range);
-
-      const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: true, defval: null });
-      console.log('Raw data rows count:', data.length);
-      console.log('First few rows:', data.slice(0, 3));
-
-      headers = data[0].map(header => String(header || '').trim());
-      console.log('Headers:', headers);
-
-      rows = data.slice(1).filter(row => {
-        const hasData = row.some(cell => cell !== null && cell !== '');
-        const matchesHeaderLength = row.length === headers.length;
-        return hasData && matchesHeaderLength;
-      });
-
-      console.log('Processed rows count:', rows.length);
-      console.log('Sample first row:', rows[0]);
-    } catch (error) {
-      console.error('Error parsing file:', error);
-      throw new Error(`Failed to parse file: ${error.message}`);
-    }
-
-    console.log('Beginning column identification');
-    const columns = identifyColumns(headers);
-    console.log('Identified columns:', columns);
+    // Basic analysis
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
 
     let totalRevenue = 0;
     let totalCost = 0;
-    const productMap = new Map();
+    let revenueIndex = headers.findIndex(h => h.toLowerCase().includes('revenue'));
+    let costIndex = headers.findIndex(h => h.toLowerCase().includes('cost'));
 
-    const revenueCol = columns.find(col => col.type === 'revenue');
-    const unitsCol = columns.find(col => col.type === 'units');
-    const salePriceCol = columns.find(col => col.type === 'sale_price');
-    const costPriceCol = columns.find(col => col.type === 'cost_price');
-    const productNameCol = columns.find(col => col.type === 'product_name');
-
-    console.log('Column mapping:', {
-      revenue: revenueCol?.index,
-      units: unitsCol?.index,
-      salePrice: salePriceCol?.index,
-      costPrice: costPriceCol?.index,
-      productName: productNameCol?.index
-    });
-
-    rows.forEach((row, index) => {
-      if (index === 0) {
-        console.log('Processing first row:', row);
+    dataRows.forEach(row => {
+      if (revenueIndex >= 0) {
+        totalRevenue += parseFloat(row[revenueIndex]) || 0;
       }
-
-      let rowRevenue = 0;
-      let rowCost = 0;
-
-      if (revenueCol) {
-        rowRevenue = extractNumber(row[revenueCol.index]);
-      } else if (unitsCol && salePriceCol) {
-        const units = extractNumber(row[unitsCol.index]);
-        const price = extractNumber(row[salePriceCol.index]);
-        rowRevenue = units * price;
+      if (costIndex >= 0) {
+        totalCost += parseFloat(row[costIndex]) || 0;
       }
-
-      if (costPriceCol && unitsCol) {
-        const units = extractNumber(row[unitsCol.index]);
-        const cost = extractNumber(row[costPriceCol.index]);
-        rowCost = units * cost;
-      }
-
-      if (index === 0) {
-        console.log('First row calculations:', {
-          revenue: rowRevenue,
-          cost: rowCost
-        });
-      }
-
-      totalRevenue += rowRevenue;
-      totalCost += rowCost;
-    });
-
-    console.log('Final totals:', {
-      revenue: totalRevenue,
-      cost: totalCost,
-      rowsProcessed: rows.length
     });
 
     const totalProfit = totalRevenue - totalCost;
     const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
     const expenseRatio = totalRevenue > 0 ? (totalCost / totalRevenue) * 100 : 0;
 
-    const analysis = {
-      total_rows: rows.length,
+    // Generate AI analysis
+    const analysisPrompt = `Analyze this financial data:
+    Total Revenue: ${totalRevenue}
+    Total Cost: ${totalCost}
+    Profit Margin: ${profitMargin}%
+    Expense Ratio: ${expenseRatio}%
+    
+    Provide insights and recommendations.`;
+
+    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a financial analyst providing insights on spreadsheet data.' },
+          { role: 'user', content: analysisPrompt }
+        ],
+      }),
+    });
+
+    const aiData = await openAIResponse.json();
+    const aiAnalysis = aiData.choices[0].message.content;
+
+    // Update the spreadsheet_uploads table with analysis results
+    const analysisResults = {
+      total_rows: dataRows.length,
       financial_metrics: {
         total_revenue: totalRevenue,
         total_cost: totalCost,
         total_profit: totalProfit,
         profit_margin: profitMargin,
-        expense_ratio: expenseRatio
+        expense_ratio: expenseRatio,
       },
+      ai_analysis: aiAnalysis,
       processed_at: new Date().toISOString()
     };
 
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await supabaseClient
       .from('spreadsheet_uploads')
       .update({
         processed: true,
-        analysis_results: analysis,
-        analyzed_at: new Date().toISOString(),
-        row_count: rows.length,
-        processing_error: null
+        analysis_results: analysisResults,
       })
       .eq('id', uploadId);
 
-    if (updateError) {
-      throw new Error(`Failed to save analysis results: ${updateError.message}`);
-    }
+    if (updateError) throw updateError;
 
     return new Response(
-      JSON.stringify({ success: true, analysis }),
+      JSON.stringify({ message: 'Spreadsheet processed successfully', analysisResults }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Processing error:', error);
-    
+    console.error('Error processing spreadsheet:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        details: "An error occurred while processing the spreadsheet. Check the logs for more details."
-      }),
+      JSON.stringify({ error: error.message }),
       { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
 });
-
-function generateInsights(productMetrics: ProductMetrics[], totalRevenue: number) {
-  const sortedByRevenue = [...productMetrics].sort((a, b) => b.totalRevenue - a.totalRevenue);
-  const sortedByUnits = [...productMetrics].sort((a, b) => b.totalUnits - a.totalUnits);
-  const sortedByProfit = [...productMetrics].sort((a, b) => b.profit - a.profit);
-  const sortedByMargin = [...productMetrics].sort((a, b) => b.profitMargin - a.profitMargin);
-
-  const insights = [
-    "Product Performance Analysis:",
-    "",
-    "Top Performing Products by Revenue:",
-    ...sortedByRevenue.slice(0, 3).map(p => 
-      `- ${p.name}: £${p.totalRevenue.toFixed(2)} (${((p.totalRevenue/totalRevenue)*100).toFixed(1)}% of total revenue)`
-    ),
-    "",
-    "Best Sellers by Units:",
-    ...sortedByUnits.slice(0, 3).map(p => 
-      `- ${p.name}: ${p.totalUnits} units`
-    ),
-    "",
-    "Most Profitable Products:",
-    ...sortedByProfit.slice(0, 3).map(p => 
-      `- ${p.name}: £${p.profit.toFixed(2)} profit (${p.profitMargin.toFixed(1)}% margin)`
-    ),
-    "",
-    "Highest Margin Products:",
-    ...sortedByMargin.slice(0, 3).map(p => 
-      `- ${p.name}: ${p.profitMargin.toFixed(1)}% margin`
-    ),
-  ];
-
-  const lowMarginProducts = productMetrics.filter(p => p.profitMargin < 20);
-  const highVolumeProducts = sortedByUnits.slice(0, 3);
-  
-  if (lowMarginProducts.length > 0) {
-    insights.push(
-      "",
-      "Pricing Optimization Opportunities:",
-      ...lowMarginProducts.map(p => 
-        `- Consider reviewing pricing for ${p.name} (current margin: ${p.profitMargin.toFixed(1)}%)`
-      )
-    );
-  }
-
-  if (highVolumeProducts.length > 0) {
-    insights.push(
-      "",
-      "Volume-based Opportunities:",
-      ...highVolumeProducts.map(p => 
-        `- Potential bulk purchasing opportunity for ${p.name} to reduce costs`
-      )
-    );
-  }
-
-  return insights;
-}

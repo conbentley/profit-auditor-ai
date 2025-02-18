@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Upload, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface SpreadsheetUpload {
   id: string;
@@ -30,6 +31,7 @@ const SpreadsheetIntegrations = () => {
   const [selectedUpload, setSelectedUpload] = useState<SpreadsheetUpload | null>(null);
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
   const [uploading, setUploading] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     fetchUploads();
@@ -56,6 +58,42 @@ const SpreadsheetIntegrations = () => {
     }
   };
 
+  const generateAudit = async (spreadsheetData: any[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Please sign in to generate an audit");
+
+      // Clear existing audit
+      await supabase
+        .from('financial_audits')
+        .delete()
+        .eq('user_id', user.id);
+
+      // Generate new comprehensive audit
+      const response = await supabase.functions.invoke('generate-audit', {
+        body: { 
+          user_id: user.id,
+          spreadsheet_data: spreadsheetData.map(upload => ({
+            id: upload.id,
+            filename: upload.filename,
+            analysis_results: upload.analysis_results
+          }))
+        }
+      });
+
+      if (response.error) throw response.error;
+
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
+
+      toast.success("Audit report generated successfully");
+    } catch (error) {
+      console.error("Failed to generate audit:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to generate audit");
+    }
+  };
+
   const processUpload = async (uploadId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('process-spreadsheet', {
@@ -64,8 +102,21 @@ const SpreadsheetIntegrations = () => {
 
       if (error) throw error;
       
+      await fetchUploads();  // Refresh the list after processing
+      
+      // Get the processed upload
+      const { data: processedUpload } = await supabase
+        .from('spreadsheet_uploads')
+        .select('*')
+        .eq('id', uploadId)
+        .single();
+
+      if (processedUpload && processedUpload.processed) {
+        // Generate new audit with the processed data
+        await generateAudit([processedUpload]);
+      }
+
       toast.success('File processed successfully');
-      fetchUploads();
     } catch (error: any) {
       toast.error(error.message || 'Error processing file');
     }
@@ -149,6 +200,7 @@ const SpreadsheetIntegrations = () => {
           <TableRow>
             <TableHead>Filename</TableHead>
             <TableHead>Uploaded At</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -157,6 +209,15 @@ const SpreadsheetIntegrations = () => {
             <TableRow key={upload.id}>
               <TableCell>{upload.filename}</TableCell>
               <TableCell>{upload.uploaded_at ? new Date(upload.uploaded_at).toLocaleString() : 'N/A'}</TableCell>
+              <TableCell>
+                {upload.processed ? (
+                  <span className="text-green-600">Processed</span>
+                ) : upload.processing_error ? (
+                  <span className="text-red-600">Error: {upload.processing_error}</span>
+                ) : (
+                  <span className="text-yellow-600">Processing...</span>
+                )}
+              </TableCell>
               <TableCell>
                 <Button variant="destructive" onClick={() => {
                   setSelectedUpload(upload);
