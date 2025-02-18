@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Task } from "./types";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 export function useOnboardingTasks() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -35,10 +37,49 @@ export function useOnboardingTasks() {
     },
   ]);
 
+  const updateTaskStatus = async (taskId: string, completed: boolean) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('completed_onboarding_tasks')
+        .eq('id', user.id)
+        .single();
+
+      let completedTasks = profile?.completed_onboarding_tasks || [];
+      
+      if (completed && !completedTasks.includes(taskId)) {
+        completedTasks = [...completedTasks, taskId];
+      } else if (!completed) {
+        completedTasks = completedTasks.filter(t => t !== taskId);
+      }
+
+      await supabase
+        .from('profiles')
+        .update({ completed_onboarding_tasks: completedTasks })
+        .eq('id', user.id);
+
+      setTasks(prev => prev.map(task => ({
+        ...task,
+        isCompleted: task.id === taskId ? completed : task.isCompleted
+      })));
+    } catch (error) {
+      console.error('Error updating task status:', error);
+    }
+  };
+
   const checkIntegrations = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      const { data: spreadsheetUploads } = await supabase
+        .from('spreadsheet_uploads')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1);
 
       const { data: financialIntegrations } = await supabase
         .from('financial_integrations')
@@ -58,19 +99,13 @@ export function useOnboardingTasks() {
         .eq('user_id', user.id)
         .limit(1);
 
-      const { data: spreadsheetUploads } = await supabase
-        .from('spreadsheet_uploads')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1);
-
       const hasIntegrations = (financialIntegrations && financialIntegrations.length > 0) ||
                             (crmIntegrations && crmIntegrations.length > 0) ||
                             (ecommerceIntegrations && ecommerceIntegrations.length > 0) ||
                             (spreadsheetUploads && spreadsheetUploads.length > 0);
 
       if (hasIntegrations) {
-        await handleTaskCompletion('integrations', '/integrations', true);
+        await updateTaskStatus('integrations', true);
       }
     } catch (error) {
       console.error('Error checking integrations:', error);
@@ -99,8 +134,6 @@ export function useOnboardingTasks() {
           isCompleted: data.completed_onboarding_tasks.includes(task.id)
         })));
       }
-
-      await checkIntegrations();
     } catch (error) {
       console.error('Error fetching onboarding progress:', error);
     } finally {
@@ -137,26 +170,16 @@ export function useOnboardingTasks() {
           queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
           
           toast.success('Audit generated successfully');
+          await updateTaskStatus('audit', true);
           
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({
-              completed_onboarding_tasks: [...(tasks.find(t => t.isCompleted)?.id ? [tasks.find(t => t.isCompleted)?.id] : []), taskId]
-            })
-            .eq('id', user.id);
-
-          if (updateError) throw updateError;
-          
-          setTasks(prev => prev.map(task => ({
-            ...task,
-            isCompleted: task.id === taskId ? true : task.isCompleted
-          })));
         } catch (error) {
           console.error('Error generating audit:', error);
           toast.error('Failed to generate audit');
         } finally {
           setIsGenerating(false);
         }
+      } else if (!skipNavigation) {
+        navigate(route);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -165,7 +188,12 @@ export function useOnboardingTasks() {
   };
 
   useEffect(() => {
-    fetchOnboardingProgress();
+    const initialize = async () => {
+      await fetchOnboardingProgress();
+      await checkIntegrations();
+    };
+    
+    initialize();
   }, []);
 
   return {
