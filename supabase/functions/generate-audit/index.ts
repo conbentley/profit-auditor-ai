@@ -1,26 +1,27 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { user_id } = await req.json()
+    const { user_id } = await req.json();
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    );
 
-    console.log('Generating audit for user:', user_id)
+    console.log('Generating audit for user:', user_id);
 
     // Get the latest processed spreadsheet data
     const { data: spreadsheetData, error: spreadsheetError } = await supabase
@@ -30,10 +31,10 @@ serve(async (req) => {
       .eq('processed', true)
       .order('uploaded_at', { ascending: false })
       .limit(1)
-      .single()
+      .single();
 
     if (spreadsheetError) {
-      console.error('Error fetching spreadsheet:', spreadsheetError)
+      console.error('Error fetching spreadsheet:', spreadsheetError);
     }
 
     const metrics = spreadsheetData?.analysis_results?.financial_metrics || {
@@ -42,11 +43,10 @@ serve(async (req) => {
       total_profit: 0,
       profit_margin: 0,
       expense_ratio: 0
-    }
+    };
 
-    // Generate AI analysis using the metrics
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openAIApiKey) throw new Error('OpenAI API key not configured')
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) throw new Error('OpenAI API key not configured');
 
     const analysisPrompt = `
       You are a professional financial analyst. Create a detailed business audit report based on these metrics:
@@ -58,24 +58,26 @@ serve(async (req) => {
       - Profit Margin: ${metrics.profit_margin.toFixed(2)}%
       - Expense Ratio: ${metrics.expense_ratio.toFixed(2)}%
       
-      Generate a comprehensive audit report with these exact sections:
-      1. Executive Summary (brief overview of financial health)
+      Generate a comprehensive audit report with ONLY these exact sections in this order:
+      1. Executive Summary (brief overview of financial health, max 2 paragraphs)
       2. Key Performance Indicators (list the metrics with their values)
       3. KPI Analysis (detailed analysis of each metric)
       4. Areas of Concern (identify potential issues)
-      5. Recommendations (provide 3-5 specific, actionable recommendations with expected impact)
-      6. Growth Opportunities (identify 2-3 strategic opportunities)
 
-      For the recommendations section, format each recommendation as:
+      After the main report, generate recommendations in this exact format, but keep them separate from the main report:
+      
+      5. Recommendations (DO NOT include this in the main report text)
+      For each recommendation, provide:
       - Title: Clear action item
       - Description: Detailed explanation
-      - Expected Impact: High/Medium/Low
-      - Implementation Difficulty: Easy/Medium/Hard
-      - Timeframe: Short-term/Medium-term/Long-term
+      - Impact: High/Medium/Low
+      - Difficulty: Easy/Medium/Hard
 
       Use clear, professional language and be specific with numbers.
       Don't use markdown symbols like # or **.
-    `
+      Keep sections clearly numbered and formatted.
+      Do not mention recommendations anywhere in sections 1-4.
+    `;
 
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -97,15 +99,18 @@ serve(async (req) => {
         ],
         temperature: 0.7,
       }),
-    })
+    });
 
-    if (!aiResponse.ok) throw new Error('Failed to get AI analysis')
+    if (!aiResponse.ok) throw new Error('Failed to get AI analysis');
 
-    const aiData = await aiResponse.json()
-    const aiAnalysis = aiData.choices[0].message.content
+    const aiData = await aiResponse.json();
+    const aiAnalysis = aiData.choices[0].message.content;
 
-    // Extract recommendations from the AI analysis
+    // Extract recommendations section
     const recommendationsSection = aiAnalysis.match(/5\.\s*Recommendations([\s\S]*?)(?=6\.|$)/i)?.[1] || '';
+    
+    // Remove recommendations section from main analysis
+    const mainAnalysis = aiAnalysis.replace(/5\.\s*Recommendations[\s\S]*?(?=6\.|$)/i, '');
     
     // Parse recommendations into structured format
     const recommendations = recommendationsSection
@@ -114,8 +119,8 @@ serve(async (req) => {
       .map(rec => {
         const title = rec.match(/Title:\s*([^\n]+)/)?.[1] || '';
         const description = rec.match(/Description:\s*([^\n]+)/)?.[1] || '';
-        const impact = rec.match(/Expected Impact:\s*([^\n]+)/)?.[1] || 'Medium';
-        const difficulty = rec.match(/Implementation Difficulty:\s*([^\n]+)/)?.[1] || 'Medium';
+        const impact = rec.match(/Impact:\s*([^\n]+)/)?.[1] || 'Medium';
+        const difficulty = rec.match(/Difficulty:\s*([^\n]+)/)?.[1] || 'Medium';
         
         return {
           title,
@@ -142,7 +147,7 @@ serve(async (req) => {
         value: `${metrics.expense_ratio.toFixed(1)}%`,
         trend: '+0%'
       }
-    ]
+    ];
 
     // Create the audit record
     const { data: auditData, error: auditError } = await supabase
@@ -150,7 +155,7 @@ serve(async (req) => {
       .insert({
         user_id,
         audit_date: new Date().toISOString(),
-        summary: aiAnalysis,
+        summary: mainAnalysis,
         monthly_metrics: {
           revenue: metrics.total_revenue,
           profit_margin: metrics.profit_margin,
@@ -167,9 +172,9 @@ serve(async (req) => {
         recommendations
       })
       .select()
-      .single()
+      .single();
 
-    if (auditError) throw auditError
+    if (auditError) throw auditError;
 
     return new Response(
       JSON.stringify({
@@ -177,16 +182,16 @@ serve(async (req) => {
         audit: auditData
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
 
   } catch (error) {
-    console.error('Error generating audit:', error)
+    console.error('Error generating audit:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    )
+    );
   }
-})
+});
