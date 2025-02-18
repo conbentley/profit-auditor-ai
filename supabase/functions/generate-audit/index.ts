@@ -1,17 +1,98 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY')!;
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
+import { read, utils } from 'https://esm.sh/xlsx@0.18.5'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
+
+async function analyzeSpreadsheetData(supabase: any, userId: string) {
+  const { data: uploads, error: uploadsError } = await supabase
+    .from('spreadsheet_uploads')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('processed', false);
+
+  if (uploadsError) {
+    console.error('Error fetching unprocessed uploads:', uploadsError);
+    return null;
+  }
+
+  let spreadsheetInsights = [];
+
+  for (const upload of uploads || []) {
+    try {
+      // Download the file from storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('spreadsheets')
+        .download(upload.file_path);
+
+      if (downloadError) {
+        console.error('Error downloading file:', downloadError);
+        continue;
+      }
+
+      // Read the spreadsheet
+      const arrayBuffer = await fileData.arrayBuffer();
+      const workbook = read(arrayBuffer);
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const data = utils.sheet_to_json(firstSheet);
+
+      // Analyze the data
+      const numericColumns = new Set<string>();
+      const columnTotals: Record<string, number> = {};
+      
+      // Identify numeric columns and calculate totals
+      data.forEach((row: any) => {
+        Object.entries(row).forEach(([key, value]) => {
+          if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))) {
+            numericColumns.add(key);
+            columnTotals[key] = (columnTotals[key] || 0) + Number(value);
+          }
+        });
+      });
+
+      // Generate insights for financial columns
+      numericColumns.forEach(column => {
+        const columnLower = column.toLowerCase();
+        if (columnLower.includes('amount') || 
+            columnLower.includes('price') || 
+            columnLower.includes('cost') || 
+            columnLower.includes('revenue') || 
+            columnLower.includes('profit')) {
+          spreadsheetInsights.push({
+            source: upload.filename,
+            metric: column,
+            total: columnTotals[column],
+            rowCount: data.length
+          });
+        }
+      });
+
+      // Mark the upload as processed
+      await supabase
+        .from('spreadsheet_uploads')
+        .update({ 
+          processed: true,
+          analyzed_at: new Date().toISOString()
+        })
+        .eq('id', upload.id);
+
+    } catch (error) {
+      console.error(`Error processing spreadsheet ${upload.filename}:`, error);
+      await supabase
+        .from('spreadsheet_uploads')
+        .update({ 
+          processing_error: error.message,
+          processed: true
+        })
+        .eq('id', upload.id);
+    }
+  }
+
+  return spreadsheetInsights;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,6 +102,14 @@ serve(async (req) => {
   try {
     const { user_id, month, year } = await req.json();
 
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Analyze spreadsheet data first
+    const spreadsheetInsights = await analyzeSpreadsheetData(supabase, user_id);
+    
     // Fetch data from all integration types
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
@@ -133,7 +222,7 @@ serve(async (req) => {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -219,6 +308,51 @@ serve(async (req) => {
     const aiResponse = await response.json();
     const analysis = JSON.parse(aiResponse.choices[0].message.content);
 
+    // Include spreadsheet insights in the audit summary and recommendations
+    let additionalSummary = '';
+    let additionalRecommendations = [];
+
+    if (spreadsheetInsights && spreadsheetInsights.length > 0) {
+      additionalSummary = "\n\nSpreadsheet Analysis:\n";
+      spreadsheetInsights.forEach(insight => {
+        additionalSummary += `Found ${insight.metric} data in ${insight.source} with a total of ${insight.total} across ${insight.rowCount} rows.\n`;
+        
+        if (insight.metric.toLowerCase().includes('revenue')) {
+          additionalRecommendations.push({
+            title: `Revenue Data from ${insight.source}`,
+            description: `Additional revenue data found in uploaded spreadsheet showing a total of ${insight.total}. Consider integrating this data with your primary financial tracking.`,
+            impact: 'medium',
+            difficulty: 'medium',
+            estimated_savings: 0
+          });
+        }
+        
+        if (insight.metric.toLowerCase().includes('cost')) {
+          additionalRecommendations.push({
+            title: `Cost Analysis from ${insight.source}`,
+            description: `Cost data identified in spreadsheet showing total expenses of ${insight.total}. Review these costs for potential optimization opportunities.`,
+            impact: 'high',
+            difficulty: 'medium',
+            estimated_savings: insight.total * 0.1 // Estimate 10% potential savings
+          });
+        }
+      });
+    }
+
+    // Create the audit report with combined insights
+    const { data: existingAudit, error: existingAuditError } = await supabase
+      .from('financial_audits')
+      .select('summary, recommendations')
+      .eq('user_id', user_id)
+      .eq('audit_date', `${year}-${month.toString().padStart(2, '0')}-01`)
+      .maybeSingle();
+
+    const summary = (existingAudit?.summary || '') + additionalSummary;
+    const recommendations = [
+      ...(existingAudit?.recommendations || []),
+      ...additionalRecommendations
+    ];
+
     // Store audit results with enhanced metrics
     const { data: audit, error: insertError } = await supabase
       .from('financial_audits')
@@ -280,10 +414,7 @@ serve(async (req) => {
     console.error('Error generating audit:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
