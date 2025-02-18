@@ -25,7 +25,7 @@ const Index = () => {
 
         const { data, error } = await supabase
           .from('profiles')
-          .select('is_onboarded')
+          .select('completed_onboarding_tasks, is_onboarded')
           .eq('id', user.id)
           .single();
 
@@ -35,7 +35,12 @@ const Index = () => {
           return;
         }
 
-        setShowOnboarding(!data?.is_onboarded);
+        // Check if all required tasks are completed
+        const requiredTasks = ['integrations', 'audit', 'chat'];
+        const completedTasks = data?.completed_onboarding_tasks || [];
+        const allTasksCompleted = requiredTasks.every(task => completedTasks.includes(task));
+
+        setShowOnboarding(!data?.is_onboarded && !allTasksCompleted);
       } catch (error) {
         console.error('Error checking onboarding status:', error);
         setShowOnboarding(true);
