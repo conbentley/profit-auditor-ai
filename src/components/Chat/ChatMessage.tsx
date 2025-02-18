@@ -7,7 +7,7 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ role, children }: ChatMessageProps) {
-  // Function to format message text with bold and bullet points
+  // Function to format message text with bold, numbers, and bullet points
   const formatMessage = (text: string) => {
     if (role !== 'assistant') return text;
 
@@ -20,30 +20,48 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
       return (
         <div key={pIndex} className="mb-4">
           {lines.map((line, index) => {
+            // Format numbers at start of line (e.g. "1.", "2.", etc)
+            line = line.replace(/^(\d+\.\s)/, '<strong>$1</strong>');
+            
             // Format bold text wrapped in ** or __
             line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             line = line.replace(/__(.*?)__/g, '<strong>$1</strong>');
 
+            // Format numeric values with currency
+            line = line.replace(/\$\d{1,3}(,\d{3})*(\.\d+)?/g, match => `<strong>${match}</strong>`);
+            
+            // Format percentage values
+            line = line.replace(/\d+(\.\d+)?%/g, match => `<strong>${match}</strong>`);
+
             // Format bullet points
             if (line.startsWith('- ')) {
               return (
-                <li key={index} className="ml-4">
+                <li key={index} className="ml-4 mb-2">
                   <span dangerouslySetInnerHTML={{ __html: line.substring(2) }} />
                 </li>
               );
             }
 
-            // Format headers (###)
+            // Format section headers (###)
             if (line.startsWith('### ')) {
               return (
-                <h3 key={index} className="font-semibold text-lg mb-2">
+                <h3 key={index} className="font-semibold text-lg mb-3">
                   <span dangerouslySetInnerHTML={{ __html: line.substring(4) }} />
                 </h3>
               );
             }
 
+            // Format subsection headers (##)
+            if (line.startsWith('## ')) {
+              return (
+                <h2 key={index} className="font-semibold text-xl mb-3 mt-4">
+                  <span dangerouslySetInnerHTML={{ __html: line.substring(3) }} />
+                </h2>
+              );
+            }
+
             return (
-              <div key={index} dangerouslySetInnerHTML={{ __html: line }} />
+              <div key={index} className="mb-2" dangerouslySetInnerHTML={{ __html: line }} />
             );
           })}
         </div>
