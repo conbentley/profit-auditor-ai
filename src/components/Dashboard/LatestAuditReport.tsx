@@ -1,8 +1,8 @@
 
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, RefreshCcw, MessageSquare, Download, Clock } from "lucide-react";
+import { Loader2, RefreshCcw, MessageSquare, Download, Clock, FileSpreadsheet } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -10,11 +10,16 @@ import { useAuditData } from "@/hooks/useAuditData";
 import { AuditMetrics } from "./AuditMetrics";
 import { AuditKPIs } from "./AuditKPIs";
 import { AuditRecommendations } from "./AuditRecommendations";
+import { supabase } from "@/integrations/supabase/client";
 
 export function LatestAuditReport() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { data: latestAudit, isLoading, isError } = useAuditData();
+
+  const handleViewSpreadsheets = () => {
+    navigate('/integrations');
+  };
 
   const handleExport = async () => {
     if (!latestAudit) return;
@@ -89,11 +94,38 @@ Difficulty: ${rec.difficulty}
 
   if (!latestAudit) {
     return (
-      <div className="text-center p-4 text-muted-foreground">
-        No audit generated yet.
+      <div className="text-center p-6 space-y-4">
+        <p className="text-muted-foreground">
+          No audit generated yet. Upload and process your spreadsheets to get AI-powered insights.
+        </p>
+        <Button onClick={handleViewSpreadsheets} variant="outline" size="sm">
+          <FileSpreadsheet className="h-4 w-4 mr-2" />
+          Upload Spreadsheets
+        </Button>
       </div>
     );
   }
+
+  // Get the latest spreadsheet analysis
+  const { data: spreadsheetData } = useQuery({
+    queryKey: ['latest-spreadsheet'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase
+        .from('spreadsheet_uploads')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('processed', true)
+        .order('uploaded_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+      return data;
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -143,6 +175,17 @@ Difficulty: ${rec.difficulty}
             <h4 className="font-medium mb-2">Analysis Summary</h4>
             <p className="text-muted-foreground whitespace-pre-line">{latestAudit.summary}</p>
           </div>
+
+          {spreadsheetData?.analysis_results?.ai_analysis && (
+            <div>
+              <h4 className="font-medium mb-2">AI Insights from Spreadsheet Data</h4>
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-muted-foreground whitespace-pre-line">
+                  {spreadsheetData.analysis_results.ai_analysis}
+                </p>
+              </div>
+            </div>
+          )}
 
           <AuditKPIs kpis={latestAudit.kpis} />
           <AuditRecommendations recommendations={latestAudit.recommendations} />
