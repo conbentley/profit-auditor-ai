@@ -11,27 +11,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-interface KPI {
-  metric: string;
-  value: string;
-  trend: string;
-}
-
-interface Recommendation {
-  title: string;
-  description: string;
-  impact: string;
-  difficulty: string;
-}
-
-interface AuditReport {
-  id: string;
-  created_at: string;
-  summary: string;
-  kpis: KPI[];
-  recommendations: Recommendation[];
-}
-
 export function LatestAuditReport() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -51,82 +30,41 @@ export function LatestAuditReport() {
         .maybeSingle();
 
       if (error) throw error;
-      if (!data) return null;
-
-      const parsedData: AuditReport = {
-        id: data.id,
-        created_at: data.created_at,
-        summary: data.summary,
-        kpis: Array.isArray(data.kpis) ? data.kpis.map((kpi: any) => ({
-          metric: kpi.metric || '',
-          value: kpi.value || '',
-          trend: kpi.trend || '',
-        })) : [],
-        recommendations: Array.isArray(data.recommendations) ? data.recommendations.map((rec: any) => ({
-          title: rec.title || '',
-          description: rec.description || '',
-          impact: rec.impact || '',
-          difficulty: rec.difficulty || '',
-        })) : [],
-      };
-
-      return parsedData;
+      return data;
     },
-    refetchInterval: 30000, // Poll every 30 seconds
+    refetchInterval: 30000,
   });
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('latest-audit-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'financial_audits'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
   const handleExport = async () => {
+    if (!latestAudit) return;
+    
     try {
-      const kpisCSV = latestAudit?.kpis.map(kpi => 
-        `${kpi.metric},${kpi.value},${kpi.trend}`
-      ).join('\n');
-      
-      const recommendationsCSV = latestAudit?.recommendations.map(rec =>
-        `${rec.title},${rec.description},${rec.impact},${rec.difficulty}`
-      ).join('\n');
-
       const csvContent = `
 AI Profit Audit Report
-Generated on: ${new Date(latestAudit?.created_at || '').toLocaleDateString()}
+Generated on: ${format(new Date(latestAudit.created_at), "MMM d, yyyy 'at' h:mm a")}
 
 Executive Summary:
-${latestAudit?.summary}
+${latestAudit.summary}
 
-KPIs:
-Metric,Value,Trend
-${kpisCSV}
+Monthly Metrics:
+Revenue: £${latestAudit.monthly_metrics.revenue.toFixed(2)}
+Profit Margin: ${latestAudit.monthly_metrics.profit_margin.toFixed(2)}%
+Expense Ratio: ${latestAudit.monthly_metrics.expense_ratio.toFixed(2)}%
 
 Recommendations:
-Title,Description,Impact,Difficulty
-${recommendationsCSV}
+${latestAudit.recommendations.map(rec => 
+  `${rec.title}
+Description: ${rec.description}
+Impact: ${rec.impact}
+Difficulty: ${rec.difficulty}
+`).join('\n')}
       `.trim();
 
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `audit-report-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `audit-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -211,36 +149,62 @@ ${recommendationsCSV}
             className="w-full md:w-auto gap-2"
           >
             <MessageSquare className="h-4 w-4" />
-            AI Assistant
+            Deeper Analysis
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {latestAudit.kpis.map((kpi, index) => (
-          <Card key={index} className="p-4">
-            <div className="text-sm text-muted-foreground">{kpi.metric}</div>
-            <div className="text-lg font-semibold mt-1">{kpi.value}</div>
-            <div className={`text-sm mt-1 ${
-              kpi.trend.includes('+') ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {kpi.trend}
-            </div>
-          </Card>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <div className="text-sm text-muted-foreground">Total Revenue</div>
+          <div className="text-lg font-semibold mt-1">
+            £{latestAudit.monthly_metrics.revenue.toLocaleString('en-GB', { maximumFractionDigits: 2 })}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm text-muted-foreground">Profit Margin</div>
+          <div className="text-lg font-semibold mt-1">
+            {latestAudit.monthly_metrics.profit_margin.toFixed(2)}%
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm text-muted-foreground">Expense Ratio</div>
+          <div className="text-lg font-semibold mt-1">
+            {latestAudit.monthly_metrics.expense_ratio.toFixed(2)}%
+          </div>
+        </Card>
       </div>
 
-      <ScrollArea className="h-[500px] rounded-md border p-4">
+      <ScrollArea className="h-[400px] rounded-md border p-4">
         <div className="space-y-6">
           <div>
-            <h4 className="font-medium mb-2">Executive Summary</h4>
-            <p className="text-muted-foreground">{latestAudit?.summary}</p>
+            <h4 className="font-medium mb-2">Analysis Summary</h4>
+            <p className="text-muted-foreground whitespace-pre-line">{latestAudit.summary}</p>
+          </div>
+
+          <div>
+            <h4 className="font-medium mb-2">Key Performance Indicators</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {latestAudit.kpis.map((kpi, index) => (
+                <Card key={index} className="p-4">
+                  <div className="text-sm text-muted-foreground">{kpi.metric}</div>
+                  <div className="text-lg font-semibold mt-1">{kpi.value}</div>
+                  {kpi.trend && (
+                    <div className={`text-sm mt-1 ${
+                      kpi.trend.includes('+') ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {kpi.trend}
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
           </div>
 
           <div>
             <h4 className="font-medium mb-2">Recommendations</h4>
             <div className="space-y-4">
-              {latestAudit?.recommendations.map((rec, index) => (
+              {latestAudit.recommendations.map((rec, index) => (
                 <Card key={index} className="p-4">
                   <h5 className="font-medium">{rec.title}</h5>
                   <p className="text-sm text-muted-foreground mt-1">
