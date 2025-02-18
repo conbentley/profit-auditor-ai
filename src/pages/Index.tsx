@@ -75,7 +75,7 @@ const Index = () => {
             <StatCard
               title="Monthly Revenue"
               value={formatCurrency(metrics.revenue)}
-              trend="vs last month"
+              trend="vs last audit"
               trendValue={`${changes.revenue > 0 ? '+' : ''}${formatPercentage(changes.revenue)}`}
               icon={DollarSign}
               trendUp={changes.revenue >= 0}
@@ -84,7 +84,7 @@ const Index = () => {
             <StatCard
               title="Profit Margin"
               value={formatPercentage(metrics.profit_margin)}
-              trend="vs last month"
+              trend="vs last audit"
               trendValue={`${changes.profit_margin > 0 ? '+' : ''}${formatPercentage(changes.profit_margin)}`}
               icon={TrendingUp}
               trendUp={changes.profit_margin >= 0}
@@ -93,7 +93,7 @@ const Index = () => {
             <StatCard
               title="Expense Ratio"
               value={formatPercentage(metrics.expense_ratio)}
-              trend="vs last month"
+              trend="vs last audit"
               trendValue={`${changes.expense_ratio > 0 ? '+' : ''}${formatPercentage(changes.expense_ratio)}`}
               icon={PieChart}
               trendUp={changes.expense_ratio < 0}
@@ -102,7 +102,7 @@ const Index = () => {
             <StatCard
               title="Audit Alerts"
               value={metrics.audit_alerts.toString()}
-              trend="vs last month"
+              trend="vs last audit"
               trendValue={`${changes.audit_alerts > 0 ? '+' : ''}${formatPercentage(changes.audit_alerts)}`}
               icon={AlertCircle}
               trendUp={changes.audit_alerts < 0}

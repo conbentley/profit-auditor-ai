@@ -11,6 +11,7 @@ interface StatCardProps {
   icon: LucideIcon;
   trendUp?: boolean;
   isLoading?: boolean;
+  lastUpdated?: string;
 }
 
 const StatCard = ({
@@ -21,6 +22,7 @@ const StatCard = ({
   icon: Icon,
   trendUp,
   isLoading = false,
+  lastUpdated
 }: StatCardProps) => {
   if (isLoading) {
     return (
@@ -55,6 +57,11 @@ const StatCard = ({
                 {trendValue}
                 <span className="ml-1">{trend}</span>
               </span>
+            </p>
+          )}
+          {lastUpdated && (
+            <p className="mt-1 text-xs text-gray-500">
+              Last updated: {lastUpdated}
             </p>
           )}
         </div>

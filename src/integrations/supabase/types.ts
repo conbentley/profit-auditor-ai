@@ -65,6 +65,47 @@ export type Database = {
           },
         ]
       }
+      audit_metrics_history: {
+        Row: {
+          audit_id: string
+          change_percentage: number | null
+          id: string
+          metric_type: string
+          metric_value: number
+          previous_value: number | null
+          recorded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          audit_id: string
+          change_percentage?: number | null
+          id?: string
+          metric_type: string
+          metric_value: number
+          previous_value?: number | null
+          recorded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          audit_id?: string
+          change_percentage?: number | null
+          id?: string
+          metric_type?: string
+          metric_value?: number
+          previous_value?: number | null
+          recorded_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_audit"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "financial_audits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_metrics: {
         Row: {
           created_at: string
