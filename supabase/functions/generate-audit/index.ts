@@ -14,7 +14,7 @@ serve(async (req) => {
 
   try {
     const { user_id, spreadsheet_data } = await req.json();
-    console.log('Received spreadsheet data:', JSON.stringify(spreadsheet_data, null, 2));
+    console.log('Processing audit for user:', user_id);
 
     if (!user_id || !spreadsheet_data) {
       throw new Error('Missing required parameters');
@@ -25,29 +25,62 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // First, clean up any existing audit data
+    const { error: cleanupError } = await supabase
+      .from('financial_audits')
+      .delete()
+      .eq('user_id', user_id);
+
+    if (cleanupError) {
+      console.error('Error cleaning up old audits:', cleanupError);
+      throw cleanupError;
+    }
+
+    // Verify these spreadsheets still exist and belong to the user
+    const { data: activeUploads, error: verifyError } = await supabase
+      .from('spreadsheet_uploads')
+      .select('id')
+      .eq('user_id', user_id)
+      .in('id', spreadsheet_data.map(sheet => sheet.id));
+
+    if (verifyError) {
+      console.error('Error verifying uploads:', verifyError);
+      throw verifyError;
+    }
+
+    const activeUploadIds = new Set(activeUploads.map(upload => upload.id));
+    const validSpreadsheetData = spreadsheet_data.filter(sheet => activeUploadIds.has(sheet.id));
+
+    console.log(`Found ${validSpreadsheetData.length} active uploads out of ${spreadsheet_data.length} total`);
+
+    if (validSpreadsheetData.length === 0) {
+      return new Response(
+        JSON.stringify({ message: 'No active spreadsheets found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Initialize metrics
     let totalRevenue = 0;
     let totalExpenses = 0;
     let insights = [];
     let processedFiles = 0;
 
-    // Process each spreadsheet
-    spreadsheet_data.forEach(sheet => {
-      console.log(`Processing sheet: ${sheet.filename}`);
+    // Process only verified active spreadsheets
+    validSpreadsheetData.forEach(sheet => {
+      console.log(`Processing verified sheet: ${sheet.filename}`);
       const results = sheet.analysis_results;
       
       if (results) {
-        // Extract revenue - check multiple possible fields
         const revenue = 
-          parseFloat(results.revenue) || 
           parseFloat(results.total_revenue) || 
+          parseFloat(results.revenue) || 
           parseFloat(results.income) || 
           0;
 
-        // Extract expenses - check multiple possible fields
         const expenses = 
-          parseFloat(results.expenses) || 
           parseFloat(results.total_expenses) || 
+          parseFloat(results.expenses) || 
           parseFloat(results.costs) || 
           0;
 
@@ -59,8 +92,8 @@ serve(async (req) => {
           processedFiles++;
           
           insights.push(`${sheet.filename}:`);
-          insights.push(`- Revenue: ${revenue.toFixed(2)}`);
-          insights.push(`- Expenses: ${expenses.toFixed(2)}`);
+          insights.push(`- Revenue: £${revenue.toFixed(2)}`);
+          insights.push(`- Expenses: £${expenses.toFixed(2)}`);
           if (revenue > 0) {
             const fileMargin = ((revenue - expenses) / revenue) * 100;
             insights.push(`- Profit Margin: ${fileMargin.toFixed(2)}%`);
@@ -75,7 +108,7 @@ serve(async (req) => {
     const expenseRatio = totalRevenue > 0 ? (totalExpenses / totalRevenue) * 100 : 0;
 
     // Generate summary
-    const summary = `Analysis of ${processedFiles} financial documents completed with data extracted. ` +
+    const summary = `Analysis of ${processedFiles} active financial documents completed. ` +
       `Total revenue: £${totalRevenue.toFixed(2)}. ` +
       `Total expenses: £${totalExpenses.toFixed(2)}. ` +
       `Overall profit margin: ${profitMargin.toFixed(2)}%. ` +
@@ -102,7 +135,6 @@ serve(async (req) => {
       });
     }
 
-    // Add default recommendation if others are empty
     if (recommendations.length === 0) {
       recommendations.push({
         title: "Financial Analysis Overview",
@@ -112,7 +144,7 @@ serve(async (req) => {
       });
     }
 
-    // Create audit record
+    // Create new audit record
     const { error: auditError } = await supabase
       .from('financial_audits')
       .insert({
