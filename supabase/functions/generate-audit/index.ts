@@ -7,6 +7,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function generateInsights(metrics: any) {
+  const insights = [];
+  
+  if (metrics.profitMargin < 20) {
+    insights.push(`Your profit margin of ${metrics.profitMargin.toFixed(1)}% is below the recommended 20%. Consider reviewing pricing strategy or reducing costs.`);
+  } else {
+    insights.push(`Your healthy profit margin of ${metrics.profitMargin.toFixed(1)}% indicates good business performance.`);
+  }
+
+  if (metrics.totalUnits > 0) {
+    const avgRevenuePerUnit = metrics.totalRevenue / metrics.totalUnits;
+    insights.push(`Average revenue per unit is £${avgRevenuePerUnit.toFixed(2)}.`);
+  }
+
+  if (metrics.expenseRatio > 80) {
+    insights.push(`Your expense ratio of ${metrics.expenseRatio.toFixed(1)}% is high. Focus on cost reduction.`);
+  }
+
+  return insights;
+}
+
+function formatCurrency(amount: number): string {
+  return `£${amount.toFixed(2)}`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -21,7 +46,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get all processed spreadsheet data
     const { data: spreadsheets, error: spreadsheetsError } = await supabase
       .from('spreadsheet_uploads')
       .select('*')
@@ -34,82 +58,76 @@ serve(async (req) => {
       throw spreadsheetsError;
     }
 
-    console.log('Found spreadsheets:', spreadsheets?.length);
+    console.log('Processing spreadsheets:', spreadsheets?.length);
 
-    // Calculate metrics from spreadsheet data
-    let totalRevenue = 0;
-    let totalCost = 0;
-    let transactionCount = 0;
-    let totalUnits = 0;
-    let averageUnitPrice = 0;
-    let bestSellingSkus: Record<string, number> = {};
+    // Aggregate all metrics
+    const metrics = {
+      totalRevenue: 0,
+      totalCost: 0,
+      totalUnits: 0,
+      transactionCount: 0,
+      profitMargin: 0,
+      expenseRatio: 0,
+      topProducts: new Map()
+    };
 
     if (spreadsheets && spreadsheets.length > 0) {
-      for (const sheet of spreadsheets) {
+      spreadsheets.forEach(sheet => {
         const summary = sheet.data_summary;
         if (summary) {
-          totalRevenue += summary.total_revenue || 0;
-          totalCost += summary.total_expenses || 0;
-          transactionCount += summary.transaction_count || 0;
+          metrics.totalRevenue += summary.total_revenue || 0;
+          metrics.totalCost += summary.total_expenses || 0;
+          metrics.transactionCount += summary.transaction_count || 0;
+          metrics.totalUnits += summary.total_units || 0;
 
-          // Process detailed transaction data
+          // Process transaction-level data
           if (summary.transactions) {
-            for (const trans of summary.transactions) {
-              if (trans.units) totalUnits += parseFloat(trans.units);
-              if (trans.sku) {
-                bestSellingSkus[trans.sku] = (bestSellingSkus[trans.sku] || 0) + parseFloat(trans.units || 0);
+            summary.transactions.forEach((trans: any) => {
+              if (trans.sku || trans.product_id || trans.item) {
+                const productId = trans.sku || trans.product_id || trans.item;
+                const currentCount = metrics.topProducts.get(productId) || 0;
+                metrics.topProducts.set(productId, currentCount + (trans.units || 1));
               }
-            }
+            });
           }
         }
-      }
+      });
     }
 
-    // Calculate additional metrics
-    averageUnitPrice = totalUnits > 0 ? totalRevenue / totalUnits : 0;
-    const profitMargin = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
-    const expenseRatio = totalRevenue > 0 ? (totalCost / totalRevenue) * 100 : 0;
+    // Calculate derived metrics
+    metrics.profitMargin = metrics.totalRevenue > 0 
+      ? ((metrics.totalRevenue - metrics.totalCost) / metrics.totalRevenue) * 100 
+      : 0;
+    
+    metrics.expenseRatio = metrics.totalRevenue > 0 
+      ? (metrics.totalCost / metrics.totalRevenue) * 100 
+      : 0;
 
-    // Get top selling SKUs
-    const topSkus = Object.entries(bestSellingSkus)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 3)
-      .map(([sku, units]) => ({ sku, units }));
+    // Get top products
+    const topProducts = Array.from(metrics.topProducts.entries())
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3);
 
+    const insights = generateInsights(metrics);
+    
     console.log('Calculated metrics:', {
-      totalRevenue,
-      totalCost,
-      transactionCount,
-      profitMargin,
-      topSkus
+      revenue: metrics.totalRevenue,
+      cost: metrics.totalCost,
+      transactions: metrics.transactionCount,
+      units: metrics.totalUnits,
+      margin: metrics.profitMargin
     });
 
-    // Generate insights based on the data
-    const insights = [];
-    if (profitMargin < 20) {
-      insights.push("Your profit margin is below 20%. Consider reviewing pricing strategy or cost optimization.");
-    }
-    if (topSkus.length > 0) {
-      insights.push(`Your best-selling product is ${topSkus[0].sku} with ${topSkus[0].units} units sold.`);
-    }
-    if (averageUnitPrice > 0) {
-      insights.push(`Your average unit price is £${averageUnitPrice.toFixed(2)}.`);
-    }
-
-    // Create the audit report
     const { data: auditData, error: auditError } = await supabase
       .from('financial_audits')
       .insert({
         user_id,
         audit_date: new Date(year, month - 1).toISOString(),
-        summary: `Based on the analysis of your ${spreadsheets?.length} spreadsheet uploads, ` +
-                `your business has processed ${transactionCount} transactions with ` +
-                `${totalUnits} units sold. Your total revenue is £${totalRevenue.toFixed(2)} ` +
-                `with a profit margin of ${profitMargin.toFixed(2)}%. ${insights.join(' ')}`,
+        summary: `Analysis of ${spreadsheets?.length} uploads shows ${metrics.transactionCount} transactions and ${metrics.totalUnits} units sold. Revenue: ${formatCurrency(metrics.totalRevenue)} with ${metrics.profitMargin.toFixed(1)}% profit margin. ${insights[0]}`,
         monthly_metrics: {
-          revenue: totalRevenue,
-          profit_margin: profitMargin,
-          expense_ratio: expenseRatio,
+          revenue: metrics.totalRevenue,
+          profit_margin: metrics.profitMargin,
+          expense_ratio: metrics.expenseRatio,
           audit_alerts: insights.length,
           previous_month: {
             revenue: 0,
@@ -121,30 +139,32 @@ serve(async (req) => {
         kpis: [
           {
             metric: "Revenue",
-            value: `£${totalRevenue.toFixed(2)}`,
-            trend: "New baseline"
+            value: formatCurrency(metrics.totalRevenue),
+            trend: "Current period"
           },
           {
             metric: "Profit Margin",
-            value: `${profitMargin.toFixed(2)}%`,
-            trend: "New baseline"
+            value: `${metrics.profitMargin.toFixed(1)}%`,
+            trend: "Current period"
           },
           {
             metric: "Units Sold",
-            value: totalUnits.toString(),
-            trend: "New baseline"
+            value: metrics.totalUnits.toString(),
+            trend: "Current period"
           }
         ],
         recommendations: [
           {
-            title: "Sales Performance Analysis",
-            description: `Your top-selling product ${topSkus[0]?.sku || 'N/A'} represents a significant portion of sales. Consider expanding this product line or applying its success factors to other products.`,
+            title: "Business Performance",
+            description: insights.join(' '),
             impact: "High",
             difficulty: "Medium"
           },
           {
-            title: "Profit Optimization",
-            description: `With a current profit margin of ${profitMargin.toFixed(2)}%, focus on ${profitMargin < 20 ? 'improving margins through cost reduction or pricing optimization' : 'maintaining your strong margin while exploring growth opportunities'}.`,
+            title: "Product Analysis",
+            description: topProducts.length > 0 
+              ? `Your top product ${topProducts[0][0]} accounts for ${topProducts[0][1]} units. Consider expanding this product line.`
+              : `Consider tracking product-specific performance to identify top sellers.`,
             impact: "High",
             difficulty: "Medium"
           }
