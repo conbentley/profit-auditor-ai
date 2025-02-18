@@ -16,115 +16,29 @@ export default function AuditReport() {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('No authenticated user found');
-        throw new Error("Not authenticated");
-      }
-      console.log('Authenticated user:', user.id);
+      if (!user) throw new Error("Please sign in to generate an audit");
 
-      // Clear existing audit data first
-      const { error: deleteError } = await supabase
+      // Clear existing audit
+      await supabase
         .from('financial_audits')
         .delete()
         .eq('user_id', user.id);
-      
-      if (deleteError) {
-        console.error('Error clearing existing audits:', deleteError);
-        throw deleteError;
-      }
-      console.log('Cleared existing audit data');
 
-      // Get all uploaded spreadsheets with detailed info
-      const { data: spreadsheets, error: spreadsheetsError } = await supabase
-        .from('spreadsheet_uploads')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (spreadsheetsError) {
-        console.error('Error fetching spreadsheets:', spreadsheetsError);
-        throw spreadsheetsError;
-      }
-
-      console.log('Found spreadsheets:', {
-        count: spreadsheets?.length || 0,
-        details: spreadsheets?.map(s => ({
-          id: s.id,
-          filename: s.filename,
-          processed: s.processed,
-          uploaded_at: s.uploaded_at
-        }))
-      });
-
-      if (!spreadsheets || spreadsheets.length === 0) {
-        throw new Error("No spreadsheets found. Please upload your data first.");
-      }
-
-      // Check storage bucket for files
-      const { data: storageFiles, error: storageError } = await supabase
-        .storage
-        .from('spreadsheets')
-        .list(user.id + '/');
-
-      console.log('Storage files:', {
-        count: storageFiles?.length || 0,
-        files: storageFiles
-      });
-
-      if (storageError) {
-        console.error('Error checking storage:', storageError);
-      }
-
-      // Invalidate queries to ensure fresh data
-      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
-      queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
-
-      const currentDate = new Date();
-      const auditParams = {
-        user_id: user.id,
-        month: currentDate.getMonth() + 1,
-        year: currentDate.getFullYear(),
-        spreadsheets_count: spreadsheets.length
-      };
-      console.log('Generating audit with params:', auditParams);
-
+      // Generate new audit
       const response = await supabase.functions.invoke('generate-audit', {
-        body: {
-          ...auditParams,
-          process_spreadsheets: true,
-        },
+        body: { user_id: user.id }
       });
 
-      console.log('Edge function response:', response);
+      if (response.error) throw response.error;
 
-      if (response.error) {
-        console.error('Edge function error:', response.error);
-        throw response.error;
-      }
-
-      // Mark spreadsheets as processed
-      const { error: updateError } = await supabase
-        .from('spreadsheet_uploads')
-        .update({ processed: true })
-        .eq('user_id', user.id);
-
-      if (updateError) {
-        console.error('Error updating spreadsheet status:', updateError);
-      } else {
-        console.log('Successfully marked spreadsheets as processed');
-      }
-
-      // Invalidate queries again after new data is generated
+      // Refresh data
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
 
       toast.success("Audit report generated successfully");
     } catch (error) {
       console.error("Failed to generate audit:", error);
-      toast.error(
-        error instanceof Error 
-          ? `Failed to generate audit: ${error.message}`
-          : "Failed to generate audit report"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to generate audit");
     } finally {
       setIsLoading(false);
     }
@@ -143,15 +57,15 @@ export default function AuditReport() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
+                Analyzing Data...
               </>
             ) : (
-              "Generate New AI Profit Audit"
+              "Generate AI Analysis"
             )}
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Generate an AI-powered audit of your financial performance to get insights and recommendations.
+          Get AI-powered insights and recommendations based on your financial data.
         </p>
       </div>
 
