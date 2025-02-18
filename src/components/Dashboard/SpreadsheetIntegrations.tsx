@@ -30,9 +30,13 @@ export default function SpreadsheetIntegrations() {
 
   const fetchUploads = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const { data, error } = await supabase
         .from('spreadsheet_uploads')
         .select('id, filename, file_type, uploaded_at, processed, processing_error')
+        .eq('user_id', user.id)
         .order('uploaded_at', { ascending: false });
 
       if (error) throw error;
@@ -63,14 +67,11 @@ export default function SpreadsheetIntegrations() {
     setIsUploading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
       // Create FormData object
       const formData = new FormData();
       formData.append('file', file);
 
-      // Modified to store file without immediate analysis
+      // Upload file
       const response = await supabase.functions.invoke('upload-spreadsheet', {
         body: formData,
         headers: {
@@ -97,13 +98,17 @@ export default function SpreadsheetIntegrations() {
 
   const handleDelete = async (id: string) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       // Optimistically remove from UI
       setUploads(current => current.filter(upload => upload.id !== id));
       
       const { error } = await supabase
         .from('spreadsheet_uploads')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id); // Ensure user can only delete their own uploads
 
       if (error) {
         // If deletion fails, restore the item
