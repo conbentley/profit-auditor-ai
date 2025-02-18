@@ -39,15 +39,18 @@ serve(async (req) => {
     // 1. Scan website using Firecrawl
     const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY')
     if (!firecrawlApiKey) {
+      console.error('Firecrawl API key not found in environment variables')
       throw new Error('Firecrawl API key not configured')
     }
 
-    console.log('Initiating Firecrawl scan...')
+    console.log('Initiating Firecrawl scan with API key:', firecrawlApiKey.substring(0, 4) + '...')
+    
     const firecrawlResponse = await fetch('https://api.firecrawl.com/crawl', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${firecrawlApiKey}`,
         'Content-Type': 'application/json',
+        'User-Agent': 'Supabase Edge Function'
       },
       body: JSON.stringify({
         url,
@@ -58,56 +61,20 @@ serve(async (req) => {
       })
     })
 
-    const websiteData = await firecrawlResponse.json()
-    console.log('Website scan completed')
-
-    // 2. Analyze with OpenAI
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured')
+    if (!firecrawlResponse.ok) {
+      const errorText = await firecrawlResponse.text()
+      console.error('Firecrawl API error:', {
+        status: firecrawlResponse.status,
+        statusText: firecrawlResponse.statusText,
+        error: errorText
+      })
+      throw new Error(`Firecrawl API error: ${firecrawlResponse.status} - ${errorText}`)
     }
 
-    console.log('Starting AI analysis...')
-    const analysisPrompt = `Analyze this business website data and provide:
-1. Core business understanding
-2. Product/service analysis
-3. SEO strengths and weaknesses
-4. Competitive positioning
-5. Key market differentiators
-6. Pricing strategy insights (if available)
-7. Customer engagement opportunities
-8. Areas for improvement
+    const websiteData = await firecrawlResponse.json()
+    console.log('Website scan completed successfully')
 
-Website Type: ${websiteType}
-Website Content: ${JSON.stringify(websiteData)}
-
-Provide a structured analysis that can be used to enhance business profitability.`
-
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a business analysis AI that provides actionable insights for improving profitability.'
-          },
-          {
-            role: 'user',
-            content: analysisPrompt
-          }
-        ],
-      }),
-    })
-
-    const aiAnalysis = await aiResponse.json()
-    console.log('AI analysis completed')
-
-    // 3. Store analysis results
+    // 2. Store scan results
     const { error: dbError } = await supabaseClient
       .from('website_analysis')
       .upsert({
@@ -116,39 +83,26 @@ Provide a structured analysis that can be used to enhance business profitability
         website_type: websiteType,
         auto_scan: autoScan,
         raw_scan_data: websiteData,
-        ai_analysis: aiAnalysis.choices[0].message.content,
-        last_scanned: new Date().toISOString()
+        last_scanned: new Date().toISOString(),
+        seo_metrics: {
+          title: websiteData.title || '',
+          description: websiteData.description || '',
+          keywords: websiteData.keywords || [],
+        }
       })
 
     if (dbError) {
       console.error('Error storing analysis:', dbError)
+      throw dbError
     }
 
-    // 4. Log the completed analysis
-    const { error: logError } = await supabaseClient.rpc('log_audit_event', {
-      p_user_id: userId,
-      p_event_type: 'website_analysis',
-      p_metadata: { 
-        url, 
-        websiteType, 
-        autoScan,
-        status: 'completed'
-      }
-    })
+    console.log('Analysis results stored successfully')
 
-    if (logError) {
-      console.error('Error logging audit event:', logError)
-    }
-
-    // 5. Return the analysis results
+    // Return success response
     return new Response(
       JSON.stringify({
         status: 'completed',
-        url: url,
-        websiteType: websiteType,
-        autoScan: autoScan,
-        websiteData: websiteData,
-        aiAnalysis: aiAnalysis.choices[0].message.content
+        message: 'Website analysis completed successfully'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -158,7 +112,10 @@ Provide a structured analysis that can be used to enhance business profitability
   } catch (error) {
     console.error('Error in analyze-website function:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Failed to analyze website',
+        details: error.message 
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
