@@ -1,7 +1,7 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,6 +74,42 @@ function extractNumber(value: any): number {
     return Number(cleaned) || 0;
   }
   return 0;
+}
+
+async function getAIAnalysis(data: any) {
+  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openAIApiKey) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a financial analyst AI that provides detailed insights about business performance based on spreadsheet data. Focus on key metrics, trends, and actionable recommendations.'
+          },
+          {
+            role: 'user',
+            content: `Please analyze this financial data and provide insights: ${JSON.stringify(data, null, 2)}`
+          }
+        ],
+      }),
+    });
+
+    const result = await response.json();
+    return result.choices[0].message.content;
+  } catch (error) {
+    console.error('Error getting AI analysis:', error);
+    throw error;
+  }
 }
 
 serve(async (req) => {
@@ -244,11 +280,20 @@ serve(async (req) => {
       column_types: columns,
       warnings: warnings,
       insights: insights,
+      ai_analysis: await getAIAnalysis({
+        financial_metrics: {
+          total_revenue: totalRevenue,
+          total_cost: totalCost,
+          total_profit: totalProfit,
+          profit_margin: profitMargin
+        },
+        product_analysis: productMetrics,
+        insights: insights
+      }),
       sample_data: rows.slice(0, 3),
       processed_at: new Date().toISOString()
     };
 
-    // Update the database with results
     const { error: updateError } = await supabaseAdmin
       .from('spreadsheet_uploads')
       .update({
@@ -275,7 +320,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        details: "If the error persists, please ensure your spreadsheet has clear column headers for product names, quantities, and prices."
+        details: "If the error persists, please ensure your spreadsheet has clear column headers and that the OpenAI API key is properly configured."
       }),
       { 
         status: 500, 
