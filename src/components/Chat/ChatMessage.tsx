@@ -15,6 +15,9 @@ export function ChatMessage({ role, children }: ChatMessageProps) {
     text = text.replace(/##\s+([^#\n]+)/g, '$1');  // Remove ## and keep the text
     text = text.replace(/\*\*([^*]+)\*\*/g, '$1'); // Remove ** and keep the text
 
+    // Remove recommendations section entirely
+    text = text.replace(/5\.\s*Recommendations[\s\S]*?(?=6\.|$)/, '');
+
     // Split by double newlines to preserve paragraph spacing
     const paragraphs = text.split('\n\n');
     
