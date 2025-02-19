@@ -20,27 +20,61 @@ Analyze the content and return a structured JSON response with the following inf
 Format your response as valid JSON without any additional commentary.`;
 
 serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { url, websiteType, autoScan, userId } = await req.json()
-    console.log('Starting website analysis for:', url)
-
-    if (!url || !userId) {
+    // Safely parse the request body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log('Received request body:', JSON.stringify(requestBody, null, 2));
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError);
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ 
+          error: 'Invalid JSON format in request', 
+          details: parseError.message 
+        }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      )
+      );
     }
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY')
+    // Validate required fields
+    const { url, websiteType, autoScan, userId } = requestBody;
+    
+    if (!url || !userId) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required fields',
+          details: 'URL and userId are required'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log('Starting website analysis for:', url);
+
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Configuration error',
+          details: 'OpenAI API key not configured'
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Initialize Supabase client
@@ -48,10 +82,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { auth: { persistSession: false } }
-    )
+    );
 
-    // 1. Analyze website using OpenAI
-    console.log('Initiating OpenAI analysis...')
+    // Analyze website using OpenAI
+    console.log('Initiating OpenAI analysis...');
     
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -71,23 +105,48 @@ serve(async (req) => {
         temperature: 0.7,
         max_tokens: 1500
       })
-    })
+    });
 
     if (!openAIResponse.ok) {
-      const errorText = await openAIResponse.text()
+      const errorText = await openAIResponse.text();
       console.error('OpenAI API error:', {
         status: openAIResponse.status,
         error: errorText
-      })
-      throw new Error(`OpenAI API error: ${openAIResponse.status} - ${errorText}`)
+      });
+      return new Response(
+        JSON.stringify({ 
+          error: 'OpenAI API error',
+          details: `${openAIResponse.status} - ${errorText}`
+        }),
+        { 
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    const aiResult = await openAIResponse.json()
-    const analysisContent = JSON.parse(aiResult.choices[0].message.content)
+    const aiResult = await openAIResponse.json();
     
-    console.log('AI analysis completed successfully')
+    // Safely parse OpenAI response
+    let analysisContent;
+    try {
+      analysisContent = JSON.parse(aiResult.choices[0].message.content);
+      console.log('AI analysis completed successfully:', JSON.stringify(analysisContent, null, 2));
+    } catch (parseError) {
+      console.error('Error parsing OpenAI response:', parseError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid AI response format',
+          details: parseError.message
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
-    // 2. Store analysis results
+    // Store analysis results
     const analysisData = {
       user_id: userId,
       url: url,
@@ -108,18 +167,27 @@ serve(async (req) => {
         pricing: analysisContent.pricing,
         promotions: analysisContent.promotions,
       }
-    }
+    };
 
     const { error: dbError } = await supabaseClient
       .from('website_analysis')
-      .upsert(analysisData)
+      .upsert(analysisData);
 
     if (dbError) {
-      console.error('Error storing analysis:', dbError)
-      throw dbError
+      console.error('Database error:', dbError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Database error',
+          details: dbError.message
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    console.log('Analysis results stored successfully')
+    console.log('Analysis results stored successfully');
 
     return new Response(
       JSON.stringify({
@@ -130,19 +198,19 @@ serve(async (req) => {
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    )
+    );
 
   } catch (error) {
-    console.error('Error in analyze-website function:', error)
+    console.error('Unexpected error in analyze-website function:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'Failed to analyze website',
+        error: 'Internal server error',
         details: error.message 
       }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    )
+    );
   }
-})
+});
