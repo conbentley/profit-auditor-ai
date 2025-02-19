@@ -9,15 +9,21 @@ const corsHeaders = {
 
 const systemPrompt = `You are a business analyst AI that analyzes websites. 
 Your task is to visit the provided URL and extract key business insights.
-Analyze the content and return a structured JSON response with the following information:
-- businessType: The type of business and industry
-- offerings: Array of products or services offered
-- targetAudience: Description of the target audience
-- uniqueSellingPoints: Array of unique selling points or value propositions
-- pricing: Any pricing information found (or null if not available)
-- promotions: Array of current special offers or promotions (or empty array if none)
-- keywordTags: Array of relevant keyword tags for the business
-Format your response as valid JSON without any additional commentary.`;
+Analyze the content and return a structured JSON response with ONLY the following fields (no markdown formatting, no backticks, just raw JSON):
+{
+  "businessType": "type of business and industry",
+  "offerings": ["array of products or services"],
+  "targetAudience": "description of target audience",
+  "uniqueSellingPoints": ["array of unique selling points"],
+  "pricing": "pricing information or null",
+  "promotions": ["array of current offers"],
+  "keywordTags": ["relevant keyword tags"]
+}`;
+
+function cleanJsonResponse(response: string): string {
+  // Remove markdown backticks and json keyword if present
+  return response.replace(/```json\n?|\n?```/g, '').trim();
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -99,7 +105,7 @@ serve(async (req) => {
           { role: 'system', content: systemPrompt },
           { 
             role: 'user', 
-            content: `Please analyze this website: ${url}\n\nProvide a complete analysis focusing on business aspects, target audience, and unique value propositions.`
+            content: `Analyze this website: ${url}\nReturn ONLY a JSON object with the specified fields, no markdown formatting or explanation needed.`
           }
         ],
         temperature: 0.7,
@@ -127,17 +133,20 @@ serve(async (req) => {
 
     const aiResult = await openAIResponse.json();
     
-    // Safely parse OpenAI response
+    // Clean and parse OpenAI response
     let analysisContent;
     try {
-      analysisContent = JSON.parse(aiResult.choices[0].message.content);
+      const cleanedResponse = cleanJsonResponse(aiResult.choices[0].message.content);
+      console.log('Cleaned response:', cleanedResponse);
+      analysisContent = JSON.parse(cleanedResponse);
       console.log('AI analysis completed successfully:', JSON.stringify(analysisContent, null, 2));
     } catch (parseError) {
       console.error('Error parsing OpenAI response:', parseError);
       return new Response(
         JSON.stringify({ 
           error: 'Invalid AI response format',
-          details: parseError.message
+          details: parseError.message,
+          raw_response: aiResult.choices[0].message.content
         }),
         { 
           status: 500,
