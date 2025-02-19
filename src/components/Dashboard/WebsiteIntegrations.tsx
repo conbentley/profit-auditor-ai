@@ -46,7 +46,6 @@ const WebsiteIntegrations = () => {
   const [autoScan, setAutoScan] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [analyses, setAnalyses] = useState<WebsiteAnalysis[]>([]);
-  const [selectedAnalysis, setSelectedAnalysis] = useState<WebsiteAnalysis | null>(null);
 
   useEffect(() => {
     fetchAnalyses();
@@ -101,16 +100,26 @@ const WebsiteIntegrations = () => {
 
       toast.info("Starting website analysis...");
 
+      // Prepare the request payload
+      const payload = {
+        url,
+        websiteType,
+        autoScan,
+        userId: user.id
+      };
+
+      console.log('Sending analysis request with payload:', payload);
+
       const { data, error } = await supabase.functions.invoke('analyze-website', {
-        body: {
-          url,
-          websiteType,
-          autoScan,
-          userId: user.id
-        }
+        body: payload
       });
 
-      if (error) throw error;
+      console.log('Received response:', data);
+
+      if (error) {
+        console.error('Analysis error:', error);
+        throw error;
+      }
 
       toast.success("Website successfully analyzed!");
       await fetchAnalyses();
@@ -139,16 +148,26 @@ const WebsiteIntegrations = () => {
 
       toast.info("Starting website rescan...");
 
+      // Prepare the request payload
+      const payload = {
+        url: analysis.url,
+        websiteType: analysis.website_type,
+        autoScan: analysis.auto_scan,
+        userId: user.id
+      };
+
+      console.log('Sending rescan request with payload:', payload);
+
       const { data, error } = await supabase.functions.invoke('analyze-website', {
-        body: {
-          url: analysis.url,
-          websiteType: analysis.website_type,
-          autoScan: analysis.auto_scan,
-          userId: user.id
-        }
+        body: payload
       });
 
-      if (error) throw error;
+      console.log('Received rescan response:', data);
+
+      if (error) {
+        console.error('Rescan error:', error);
+        throw error;
+      }
 
       toast.success("Website successfully rescanned!");
       await fetchAnalyses();
