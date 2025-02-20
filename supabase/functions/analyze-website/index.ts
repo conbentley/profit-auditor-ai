@@ -7,39 +7,48 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Force the model to return raw JSON with explicit formatting instructions
-const systemPrompt = `You are a JSON-only API that analyzes websites.
-DO NOT use markdown formatting or code blocks.
-DO NOT include any explanatory text.
-ONLY return a raw JSON object with this exact structure:
+const systemPrompt = `You are an expert business analyst and consultant API that provides deep, actionable insights for businesses. Your analysis must be detailed and specific, focusing on real business value and competitive advantages.
+
+Analyze the website content thoroughly, looking for:
+1. ALL products and services (do not limit your analysis, scan the entire catalog)
+2. Pricing strategies and models
+3. Market positioning
+4. Competitive advantages
+5. Customer pain points being addressed
+6. Growth opportunities
+7. Revenue optimization potential
+8. Market differentiation factors
+9. Brand messaging effectiveness
+10. Customer acquisition channels
+
+Return ONLY a JSON object with this structure (no markdown):
 {
-  "businessType": "string describing type of business",
-  "offerings": ["array of products or services"],
-  "targetAudience": "string describing target audience",
-  "uniqueSellingPoints": ["array of unique selling points"],
-  "pricing": "string with pricing info or null",
-  "promotions": ["array of current offers"],
-  "keywordTags": ["array of relevant keywords"]
+  "businessType": "detailed business type and market focus",
+  "offerings": ["complete array of ALL products/services found"],
+  "targetAudience": "detailed target market analysis",
+  "uniqueSellingPoints": ["comprehensive array of unique value propositions"],
+  "pricingStrategy": "detailed pricing model analysis",
+  "competitiveAdvantages": ["specific competitive advantages"],
+  "growthOpportunities": [{
+    "opportunity": "specific growth opportunity",
+    "impact": "estimated revenue impact percentage",
+    "implementation": "specific implementation steps",
+    "timeframe": "estimated implementation timeframe",
+    "resources": "required resources"
+  }],
+  "marketPositioning": "detailed market position analysis",
+  "customerPainPoints": ["specific customer problems solved"],
+  "revenuePotential": [{
+    "stream": "revenue stream name",
+    "potential": "estimated revenue potential",
+    "requirements": "implementation requirements"
+  }],
+  "brandAnalysis": {
+    "strengths": ["brand strengths"],
+    "improvement_areas": ["areas needing improvement"],
+    "market_perception": "analysis of market perception"
+  }
 }`;
-
-function cleanJsonResponse(text: string): string {
-  // Handle different cases of JSON contamination
-  let cleaned = text
-    // Remove markdown code blocks
-    .replace(/```json\s*|```\s*/g, '')
-    // Remove any leading/trailing whitespace
-    .trim()
-    // Remove any non-JSON text before the first {
-    .replace(/^[^{]*({.*})[^}]*$/s, '$1')
-    // Clean up any double newlines or spaces
-    .replace(/\n+/g, '\n')
-    .replace(/\s+/g, ' ');
-
-  console.log('Original response:', text);
-  console.log('Cleaned response:', cleaned);
-  
-  return cleaned;
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -73,6 +82,8 @@ serve(async (req) => {
       );
     }
 
+    console.log('Starting comprehensive website analysis:', url);
+
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
       return new Response(
@@ -84,14 +95,41 @@ serve(async (req) => {
       );
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } }
-    );
+    // First, let's crawl the product pages to get a comprehensive list
+    let productData = "";
+    try {
+      const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
+      if (firecrawlApiKey) {
+        console.log('Initiating Firecrawl scan for product data...');
+        const crawlResponse = await fetch('https://api.firecrawl.net/crawl', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${firecrawlApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            url,
+            selectors: {
+              products: '.product, .item, article, .product-item', // Common product selectors
+              prices: '.price, .amount, [data-price]',
+              titles: '.product-title, .item-title, h1, h2, h3'
+            },
+            maxPages: 100 // Scan up to 100 pages
+          })
+        });
+        
+        if (crawlResponse.ok) {
+          const crawlData = await crawlResponse.json();
+          productData = JSON.stringify(crawlData);
+          console.log(`Found ${crawlData.products?.length || 0} products through crawling`);
+        }
+      }
+    } catch (error) {
+      console.error('Firecrawl error:', error);
+      // Continue with analysis even if crawl fails
+    }
 
-    console.log('Analyzing website:', url);
-    
+    console.log('Sending data to OpenAI for analysis...');
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -107,11 +145,11 @@ serve(async (req) => {
           },
           { 
             role: 'user', 
-            content: `Analyze this URL: ${url}\nReturn ONLY raw JSON matching the specified structure. NO markdown, NO explanation text.`
+            content: `Analyze this URL: ${url}\n${productData ? `Additional product data: ${productData}\n` : ''}Provide a thorough business analysis. Return ONLY raw JSON matching the specified structure.`
           }
         ],
-        temperature: 0.5, // Lower temperature for more consistent formatting
-        max_tokens: 1500
+        temperature: 0.3, // Lower temperature for more factual analysis
+        max_tokens: 4000  // Increased token limit for comprehensive analysis
       })
     });
 
@@ -128,38 +166,20 @@ serve(async (req) => {
     }
 
     const aiResult = await openAIResponse.json();
-    const rawContent = aiResult.choices[0].message.content;
-    
-    let analysisContent;
-    try {
-      // Clean and parse the response
-      const cleanedJson = cleanJsonResponse(rawContent);
-      analysisContent = JSON.parse(cleanedJson);
-      
-      // Validate required fields
-      const requiredFields = ['businessType', 'offerings', 'targetAudience', 'uniqueSellingPoints', 'keywordTags'];
-      const missingFields = requiredFields.filter(field => !(field in analysisContent));
-      
-      if (missingFields.length > 0) {
-        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-      }
-    } catch (error) {
-      console.error('JSON parsing error:', error);
-      console.error('Raw AI response:', rawContent);
-      return new Response(
-        JSON.stringify({
-          error: 'Invalid AI response format',
-          details: error.message,
-          rawResponse: rawContent
-        }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+    const analysisContent = JSON.parse(aiResult.choices[0].message.content.trim());
+
+    // Validate the analysis has found a reasonable number of offerings
+    if (!analysisContent.offerings || analysisContent.offerings.length < 10) {
+      console.warn('Warning: Low number of offerings detected:', analysisContent.offerings?.length);
     }
 
     // Store analysis results
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { persistSession: false } }
+    );
+
     const analysisData = {
       user_id: userId,
       url: url,
@@ -170,9 +190,19 @@ serve(async (req) => {
       seo_metrics: {
         title: url,
         description: analysisContent.uniqueSellingPoints?.join('. ') || '',
-        keywords: analysisContent.keywordTags || [],
+        keywords: analysisContent.brandAnalysis?.strengths || [],
       },
-      raw_scan_data: analysisContent
+      competitor_data: {
+        advantages: analysisContent.competitiveAdvantages || [],
+        market_position: analysisContent.marketPositioning || '',
+        growth_opportunities: analysisContent.growthOpportunities || []
+      },
+      raw_scan_data: {
+        offerings_count: analysisContent.offerings?.length || 0,
+        pricing_strategy: analysisContent.pricingStrategy || '',
+        revenue_potential: analysisContent.revenuePotential || [],
+        customer_pain_points: analysisContent.customerPainPoints || []
+      }
     };
 
     const { error: dbError } = await supabaseClient
@@ -193,7 +223,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         status: 'success',
-        message: 'Website analysis completed',
+        message: 'Comprehensive website analysis completed',
         data: analysisContent
       }),
       { 
