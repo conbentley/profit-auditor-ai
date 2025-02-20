@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { LatestAuditReport } from "./LatestAuditReport";
@@ -28,8 +28,22 @@ export default function AuditReport() {
 
       if (uploadsError) throw uploadsError;
 
-      if (!uploads || uploads.length === 0) {
-        toast.error("No processed spreadsheet data available. Please upload and process some data first.");
+      // Get website analysis data
+      const { data: websiteData, error: websiteError } = await supabase
+        .from('website_analysis')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('last_scanned', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (websiteError && websiteError.code !== 'PGRST116') { // Ignore "no rows returned" error
+        throw websiteError;
+      }
+
+      // If no website analysis or spreadsheet data, show error
+      if (!websiteData && (!uploads || uploads.length === 0)) {
+        toast.error("No website or spreadsheet data available. Please add at least one data source.");
         return;
       }
 
@@ -43,11 +57,13 @@ export default function AuditReport() {
       const response = await supabase.functions.invoke('generate-audit', {
         body: { 
           user_id: user.id,
-          spreadsheet_data: uploads.map(upload => ({
+          website_data: websiteData,
+          spreadsheet_data: uploads ? uploads.map(upload => ({
             id: upload.id,
             filename: upload.filename,
             analysis_results: upload.analysis_results
-          }))
+          })) : [],
+          has_spreadsheets: uploads && uploads.length > 0
         }
       });
 
@@ -57,7 +73,10 @@ export default function AuditReport() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['latest-audit'] });
 
-      toast.success("Comprehensive audit report generated successfully");
+      toast.success(uploads && uploads.length > 0 
+        ? "Comprehensive audit report generated successfully"
+        : "Basic website audit generated. Upload spreadsheet data for enhanced analysis."
+      );
     } catch (error) {
       console.error("Failed to generate audit:", error);
       toast.error(error instanceof Error ? error.message : "Failed to generate audit");
@@ -79,7 +98,7 @@ export default function AuditReport() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Analyzing All Data...
+                Analyzing Data...
               </>
             ) : (
               "Generate AI Analysis"
@@ -87,7 +106,8 @@ export default function AuditReport() {
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Get AI-powered insights and recommendations based on all your uploaded financial data.
+          Get AI-powered insights based on your website and financial data.
+          For comprehensive analysis, consider uploading financial spreadsheets.
         </p>
       </div>
 
