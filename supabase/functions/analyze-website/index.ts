@@ -7,28 +7,48 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const systemPrompt = `You are an expert business analyst and consultant API. Your task is to provide an exhaustive analysis of ALL products, pricing, and business aspects of the website.
+const systemPrompt = `You are an expert business analyst and consultant API. Analyze the ENTIRE website comprehensively, including all pages, sections, and content.
 
 Scan and analyze:
-1. ALL products in the catalog (list every single product found)
-2. ALL pricing data (regular prices, sale prices, discounts)
-3. ALL deals and promotions
-4. Product categories and organization
-5. Pricing strategies across different categories
-6. Cross-selling and upselling opportunities
-7. Customer journey and conversion points
-8. Market positioning and competitor differentiation
-9. Revenue optimization opportunities
-10. Brand messaging and value propositions
+1. ALL pages from navigation menus and site structure
+2. ALL products/services across ALL categories and sections
+3. ALL pricing information, including:
+   - Regular prices
+   - Sale prices
+   - Bulk discounts
+   - Special offers
+   - Seasonal promotions
+4. Complete business model and revenue streams
+5. ALL marketing messages and value propositions
+6. Customer journey across the entire site
+7. Technical capabilities and features
+8. Content strategy and resources
+9. Support and service offerings
+10. Company information and policies
 
 Return ONLY a JSON object with this structure (no markdown):
 {
   "businessType": "detailed business type and market focus",
-  "offerings": ["complete array of ALL products/services found with prices"],
+  "siteStructure": {
+    "mainPages": ["list of main navigation pages"],
+    "subPages": ["list of sub-pages and sections"],
+    "resourcePages": ["list of resources, blogs, documentation"]
+  },
+  "offerings": ["complete array of ALL products/services with prices"],
   "pricingData": {
     "priceRanges": ["list of price ranges per category"],
     "deals": ["all current deals and promotions"],
     "discounts": ["all discount types and conditions"]
+  },
+  "businessModel": {
+    "revenueStreams": ["all revenue streams identified"],
+    "customerSegments": ["identified customer segments"],
+    "channels": ["sales and distribution channels"]
+  },
+  "contentAnalysis": {
+    "mainTopics": ["key content themes"],
+    "resourceTypes": ["types of content/resources available"],
+    "contentGaps": ["missing or underutilized content areas"]
   },
   "targetAudience": "detailed target market analysis",
   "uniqueSellingPoints": ["comprehensive array of unique value propositions"],
@@ -107,7 +127,8 @@ serve(async (req) => {
     }
 
     // Enhanced website crawling
-    let productData = "";
+    let siteData = "";
+    let totalPages = 0;
     let totalProducts = 0;
     try {
       if (firecrawlApiKey) {
@@ -121,64 +142,83 @@ serve(async (req) => {
           body: JSON.stringify({
             url,
             selectors: {
+              navigation: [
+                'nav', 'header', '.menu', '.navigation', // Navigation containers
+                '.nav-item', '.menu-item', // Menu items
+                'a[href]:not([href^="#"])' // All non-anchor links
+              ],
               products: [
-                '.product', '.item', 'article', '.product-item', // Common product containers
-                '[data-product]', '[itemtype*="Product"]', // Schema.org and data attributes
-                '.card:has(.price)', // Cards containing prices
-                '.collection-item:has(.price)' // Collection items with prices
+                '.product', '.item', 'article', '.product-item',
+                '[data-product]', '[itemtype*="Product"]',
+                '.card:has(.price)',
+                '.collection-item:has(.price)'
               ],
               prices: [
-                '.price', '.amount', '[data-price]', // Basic price elements
-                '.regular-price', '.sale-price', '.special-price', // Different price types
-                '.was-price', '.now-price', // Sale indicators
-                '[itemprop="price"]' // Schema.org price
+                '.price', '.amount', '[data-price]',
+                '.regular-price', '.sale-price', '.special-price',
+                '.was-price', '.now-price',
+                '[itemprop="price"]'
               ],
-              titles: [
-                '.product-title', '.item-title', 'h1', 'h2', 'h3',
-                '[itemprop="name"]', // Schema.org name
-                '.product-name', '.item-name' // Common name classes
-              ],
-              descriptions: [
-                '.description', '.product-description',
-                '[itemprop="description"]',
-                '.details', '.specs'
+              content: [
+                'main', 'article', 'section', // Main content areas
+                '.content', '.page-content', // Content containers
+                'p', 'h1', 'h2', 'h3', 'h4', // Text content
+                '.description', '.details', // Product/service descriptions
+                'ul', 'ol', 'dl' // Lists
               ],
               deals: [
                 '.sale', '.discount', '.special-offer',
-                '.promotion', '.deal', '.offer'
+                '.promotion', '.deal', '.offer',
+                '.banner:has(.price)', // Promotional banners with prices
+                '[class*="discount"]', '[class*="offer"]'
               ]
             },
-            maxPages: 200, // Increased page limit for thorough scanning
-            waitForSelectors: true, // Ensure dynamic content is loaded
-            followLinks: true, // Crawl linked pages
-            depth: 3 // Crawl up to 3 levels deep
+            maxPages: 500, // Significantly increased page limit
+            waitForSelectors: true,
+            followLinks: true,
+            depth: 5, // Increased depth to catch more pages
+            allowedDomains: [new URL(url).hostname], // Stay on the same domain
+            // Additional crawling options for comprehensive scan
+            options: {
+              includeNavigationLinks: true,
+              includeImages: true,
+              includePrices: true,
+              includeMetadata: true,
+              followSitemap: true, // Use sitemap.xml if available
+              respectRobotsTxt: true
+            }
           })
         });
         
         if (crawlResponse.ok) {
           const crawlData = await crawlResponse.json();
           totalProducts = crawlData.products?.length || 0;
-          console.log(`Found ${totalProducts} products through crawling`);
+          totalPages = crawlData.pages?.length || 0;
+          console.log(`Scanned ${totalPages} pages and found ${totalProducts} products`);
           
-          // Enhanced product data processing
+          // Enhanced site data processing
           const processedData = {
+            navigation: {
+              mainMenu: crawlData.navigation || [],
+              pages: crawlData.pages || []
+            },
             products: crawlData.products || [],
             prices: crawlData.prices || [],
             deals: crawlData.deals || [],
+            content: crawlData.content || [],
             categories: new Set(crawlData.products?.map((p: any) => p.category)).size
           };
           
-          productData = JSON.stringify(processedData);
+          siteData = JSON.stringify(processedData);
         } else {
           console.error('Firecrawl request failed:', await crawlResponse.text());
         }
       }
     } catch (error) {
       console.error('Firecrawl error:', error);
-      // Continue with analysis even if crawl fails
     }
 
-    console.log('Sending enhanced data to OpenAI for analysis...');
+    console.log('Sending enhanced site data to OpenAI for analysis...');
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -186,7 +226,7 @@ serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Fixed model name
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
@@ -194,7 +234,7 @@ serve(async (req) => {
           },
           { 
             role: 'user', 
-            content: `Analyze this URL: ${url}\n${productData ? `Product data (${totalProducts} products found): ${productData}\n` : ''}Provide a thorough business analysis. Return ONLY raw JSON matching the specified structure.`
+            content: `Analyze this website: ${url}\n${siteData ? `Site data (${totalPages} pages, ${totalProducts} products found): ${siteData}\n` : ''}Provide a thorough business analysis. Return ONLY raw JSON matching the specified structure.`
           }
         ],
         temperature: 0.3,
@@ -216,14 +256,6 @@ serve(async (req) => {
 
     const aiResult = await openAIResponse.json();
     const analysisContent = JSON.parse(aiResult.choices[0].message.content.trim());
-
-    // Validate analysis completeness
-    if (!analysisContent.offerings || analysisContent.offerings.length < totalProducts) {
-      console.warn('Warning: Analysis found fewer products than crawler:', {
-        crawledProducts: totalProducts,
-        analyzedProducts: analysisContent.offerings?.length
-      });
-    }
 
     // Store analysis results
     const supabaseClient = createClient(
@@ -250,8 +282,12 @@ serve(async (req) => {
         growth_opportunities: analysisContent.growthOpportunities || []
       },
       raw_scan_data: {
+        pages_scanned: totalPages,
         offerings_count: totalProducts,
+        site_structure: analysisContent.siteStructure || {},
         pricing_data: analysisContent.pricingData || {},
+        business_model: analysisContent.businessModel || {},
+        content_analysis: analysisContent.contentAnalysis || {},
         pricing_strategy: analysisContent.pricingStrategy || '',
         revenue_potential: analysisContent.revenuePotential || [],
         customer_pain_points: analysisContent.customerPainPoints || []
@@ -279,6 +315,7 @@ serve(async (req) => {
         message: 'Comprehensive website analysis completed',
         data: analysisContent,
         stats: {
+          pages_scanned: totalPages,
           products_found: totalProducts,
           analysis_completed: true
         }
