@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { Globe, ArrowRight, RefreshCw, ExternalLink } from "lucide-react";
+import { Globe, ArrowRight, RefreshCw, ExternalLink, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { Json } from "@/integrations/supabase/types";
 
@@ -46,6 +55,8 @@ const WebsiteIntegrations = () => {
   const [autoScan, setAutoScan] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [analyses, setAnalyses] = useState<WebsiteAnalysis[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [websiteToDelete, setWebsiteToDelete] = useState<WebsiteAnalysis | null>(null);
 
   useEffect(() => {
     fetchAnalyses();
@@ -60,7 +71,6 @@ const WebsiteIntegrations = () => {
 
       if (error) throw error;
 
-      // Transform the data to ensure correct types
       const transformedData: WebsiteAnalysis[] = (data || []).map(item => ({
         ...item,
         seo_metrics: typeof item.seo_metrics === 'string' 
@@ -100,7 +110,6 @@ const WebsiteIntegrations = () => {
 
       toast.info("Starting website analysis...");
 
-      // Prepare the request payload
       const payload = {
         url,
         websiteType,
@@ -124,7 +133,6 @@ const WebsiteIntegrations = () => {
       toast.success("Website successfully analyzed!");
       await fetchAnalyses();
       
-      // Reset form
       setUrl("");
       setWebsiteType("");
       
@@ -148,7 +156,6 @@ const WebsiteIntegrations = () => {
 
       toast.info("Starting website rescan...");
 
-      // Prepare the request payload
       const payload = {
         url: analysis.url,
         websiteType: analysis.website_type,
@@ -177,6 +184,35 @@ const WebsiteIntegrations = () => {
       toast.error("Failed to rescan website. Please try again.");
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleDeleteClick = (analysis: WebsiteAnalysis) => {
+    setWebsiteToDelete(analysis);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!websiteToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('website_analysis')
+        .delete()
+        .eq('id', websiteToDelete.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success(`Website ${websiteToDelete.url} successfully deleted`);
+      await fetchAnalyses();
+    } catch (error) {
+      console.error("Error deleting website:", error);
+      toast.error("Failed to delete website. Please try again.");
+    } finally {
+      setDeleteDialogOpen(false);
+      setWebsiteToDelete(null);
     }
   };
 
@@ -285,15 +321,26 @@ const WebsiteIntegrations = () => {
                   <TableCell>{format(new Date(analysis.last_scanned), 'MMM d, yyyy HH:mm')}</TableCell>
                   <TableCell>{analysis.auto_scan ? 'Yes' : 'No'}</TableCell>
                   <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRescan(analysis)}
-                      disabled={isScanning}
-                    >
-                      <RefreshCw className="mr-1 h-4 w-4" />
-                      Rescan
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRescan(analysis)}
+                        disabled={isScanning}
+                      >
+                        <RefreshCw className="mr-1 h-4 w-4" />
+                        Rescan
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive border-destructive hover:bg-destructive/10"
+                        onClick={() => handleDeleteClick(analysis)}
+                      >
+                        <Trash2 className="mr-1 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -311,6 +358,29 @@ const WebsiteIntegrations = () => {
           <li>• Provide personalized recommendations for improvement</li>
         </ul>
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Website</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this website? This will remove all scan data and the website will no longer be analyzed.
+              {websiteToDelete && (
+                <div className="mt-2 font-medium text-primary">{websiteToDelete.url}</div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
