@@ -53,18 +53,23 @@ export default function AuditReport() {
         .delete()
         .eq('user_id', user.id);
 
-      // Generate new comprehensive audit
+      // Generate new comprehensive audit with proper formatting for the payload
+      // making sure we don't pass undefined values that could cause the 'replace' error
+      const auditPayload = { 
+        user_id: user.id,
+        website_data: websiteData || null,
+        spreadsheet_data: uploads ? uploads.map(upload => ({
+          id: upload.id,
+          filename: upload.filename,
+          analysis_results: upload.analysis_results || null
+        })) : [],
+        has_spreadsheets: Boolean(uploads && uploads.length > 0)
+      };
+      
+      console.log("Sending audit generation payload:", JSON.stringify(auditPayload));
+      
       const response = await supabase.functions.invoke('generate-audit', {
-        body: { 
-          user_id: user.id,
-          website_data: websiteData,
-          spreadsheet_data: uploads ? uploads.map(upload => ({
-            id: upload.id,
-            filename: upload.filename,
-            analysis_results: upload.analysis_results
-          })) : [],
-          has_spreadsheets: uploads && uploads.length > 0
-        }
+        body: auditPayload
       });
 
       if (response.error) throw response.error;
@@ -79,7 +84,7 @@ export default function AuditReport() {
       );
     } catch (error) {
       console.error("Failed to generate audit:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate audit");
+      toast.error(error instanceof Error ? error.message : "Failed to generate audit. Please try again later.");
     } finally {
       setIsLoading(false);
     }
